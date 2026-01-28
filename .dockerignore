@@ -1,0 +1,69 @@
+## === Adapted from the original .dockerignore ===
+## (Keeps original exclusions and adds hidden/local_ rules)
+
+## Ignore all hidden folders (starting with .)
+.*/ 
+!.git/        # except the .git folder itself
+
+## Ignore all folders starting with 'local_'
+local_*/
+
+## ingore tmp foldee
+tmp/
+
+## (Optional) Ensure logs/tmp are ignored
+
+rag-drive-gcp/.*/
+rag-drive-gcp/logs/
+rag-drive-gcp/tmp/
+rag-drive-gcp/**/mesh.db
+rag-drive-gcp/**/*.xml
+rag-drive-gcp/**/*.json*
+rag-drive-gcp/**/*.sha*
+
+## Pytest cache (anywhere)
+.pytest_cache/
+
+## === Common folders and files to ignore ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.bak
+*.swp
+*.exe
+.DS_Store
+Thumbs.db
+
+## Virtual environments
+venv/
+.env/
+.venv/
+env/
+
+## IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+## Build / dist
+build/
+dist/
+*.egg-info/
+
+## Notebooks checkpoints
+.ipynb_checkpoints/
+
+## Tests / coverage
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+
+## Data and cache
+cache/
+logs/
+tmp/
