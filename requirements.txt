@@ -1,0 +1,11 @@
+streamlit
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-cloud-storage
+vertexai
+pydantic
+numpy
+requests
+python-dotenv
+pytest

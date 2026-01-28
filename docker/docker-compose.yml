@@ -1,0 +1,15 @@
+version: "3.9" ## Docker Compose file format version
+
+services:
+  rag_drive_gcp: ## Main Streamlit service for rag-drive-gcp
+    build: . ## Build image from project root (Dockerfile)
+    container_name: rag_drive_gcp ## Container name
+    ports:
+      - "8501:8501" ## Expose Streamlit port
+    env_file:
+      - .env ## Load environment variables
+    volumes:
+      - ./data:/app/data ## Persist data directory
+      - ./logs:/app/logs ## Persist logs directory
+    command: streamlit run main.py --server.address=0.0.0.0 --server.port=8501 ## Start Streamlit app
+    restart: unless-stopped ## Restart policy
