@@ -1,0 +1,13 @@
+version: "3.9" ## Docker Compose file format version
+
+services:
+  local_finetuning: ## Main service for local-finetuning
+    build: .. ## Build image from project root (docker/Dockerfile)
+    container_name: local_finetuning ## Container name
+    env_file:
+      - ../.env ## Load environment variables
+    volumes:
+      - ../data:/app/data ## Persist data directory
+      - ../artifacts:/app/artifacts ## Persist artifacts directory
+    command: python main.py full ## Run full pipeline
+    restart: unless-stopped ## Restart policy

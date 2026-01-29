@@ -1,0 +1,12 @@
+python-dotenv
+numpy
+pandas
+scikit-learn
+torch
+transformers
+datasets
+peft
+accelerate
+bitsandbytes
+pytest
+tqdm
