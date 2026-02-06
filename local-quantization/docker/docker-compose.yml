@@ -1,0 +1,13 @@
+version: "3.9" ## Docker Compose file format version
+
+services:
+  local_quantization: ## Main service for local-quantization
+    build: .. ## Build image from project root (docker/Dockerfile)
+    container_name: local_quantization ## Container name
+    env_file:
+      - ../.env ## Load environment variables
+    volumes:
+      - ../models:/app/models ## Persist local models (base / adapters)
+      - ../artifacts:/app/artifacts ## Persist quantization artifacts and benchmarks
+    command: python main.py ## Run pipeline (PIPELINE_MODE driven by env)
+    restart: unless-stopped ## Restart policy
