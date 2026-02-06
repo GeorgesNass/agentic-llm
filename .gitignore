@@ -26,6 +26,7 @@ rag-drive-gcp/**/*.sha*
 */**/*.xml
 */**/*.json*
 */**/*.sha*
+*/**/*.csv*
 
 # Model weights and checkpoints
 */**/pytorch_model.bin
