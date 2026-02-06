@@ -1,0 +1,105 @@
+## === Adapted from .dockerignore ===
+## (Keeps identical exclusions and adds hidden/local_ rules)
+
+## Ignore all hidden folders (starting with .)
+.*/ 
+!.git/        # except the .git folder itself
+
+## Ignore all folders starting with 'local_'
+local_*/
+
+## ingore tmp foldee
+tmp/
+
+## (Optional) Ensure logs/tmp are ignored
+
+logs/
+tmp/
+**/*.json*
+**/*.xml
+**/*.sha*
+
+## ---------------------------------------------------------------------------
+## HuggingFace / Transformers / LoRA artifacts
+## ---------------------------------------------------------------------------
+
+# Model weights and checkpoints
+**/pytorch_model.bin
+**/model.safetensors
+**/adapter_model.bin
+**/adapter_model.safetensors
+
+# Trainer / HF checkpoints
+**/checkpoint-*/
+**/trainer_state.json
+**/training_args.bin
+
+# Tokenizers
+**/tokenizer.json
+**/tokenizer_config.json
+**/special_tokens_map.json
+**/vocab.json
+**/merges.txt
+
+# PEFT / LoRA specific
+**/lora_adapter/
+**/peft_config.json
+
+# HuggingFace cache (optional but recommended)
+.huggingface/
+.cache/huggingface/
+.cache/torch/
+
+# Accelerate / DeepSpeed (if ever used)
+**/accelerate_config.yaml
+**/zero_to_fp32.py
+
+
+## Pytest cache (anywhere)
+.pytest_cache/
+
+
+## === Common folders and files to ignore ===
+__pycache__/
+
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.bak
+*.swp
+*.exe
+.DS_Store
+Thumbs.db
+
+## Virtual environments
+venv/
+.env/
+.venv/
+env/
+
+## IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+## Build / dist
+build/
+dist/
+*.egg-info/
+
+## Notebooks checkpoints
+.ipynb_checkpoints/
+
+## Tests / coverage
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+
+## Data and cache
+cache/
+logs/
+tmp/
