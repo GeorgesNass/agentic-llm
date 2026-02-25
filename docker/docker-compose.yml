@@ -1,0 +1,19 @@
+version: "3.9"                                   # Docker Compose specification version
+
+services:
+  app:                                            # Main LLM Proxy Gateway service
+    build:
+      context: .                                  # Use project root as Docker build context
+      dockerfile: docker/Dockerfile               # Path to Dockerfile
+    container_name: llm-proxy-gateway-app         # Container name
+    volumes:
+      - .:/app                                    # Mount full project source code
+      - ./data:/app/data                          # Mount data directory (raw/processed)
+      - ./artifacts:/app/artifacts                # Mount artifacts (config, exports, resources)
+      - ./logs:/app/logs                          # Mount logs directory
+      - ./secrets:/app/secrets                    # Mount secrets (excluded from git)
+    env_file:
+      - .env                                      # Load environment variables
+    ports:
+      - "8000:8000"                               # Expose FastAPI port
+    command: python main.py --run-api --host 0.0.0.0 --port 8000  # Start API service
