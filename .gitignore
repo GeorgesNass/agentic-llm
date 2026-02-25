@@ -15,18 +15,21 @@ tmp/
 rag-drive-gcp/.*/
 rag-drive-gcp/logs/
 rag-drive-gcp/tmp/
+rag-drive-gcp/secrets/
 rag-drive-gcp/**/mesh.db
 rag-drive-gcp/**/*.xml
-rag-drive-gcp/**/*.json*
+#rag-drive-gcp/**/*.json*
 rag-drive-gcp/**/*.sha*
 */.*/
 */logs/
 */tmp/
 */**/mesh.db
 */**/*.xml
-*/**/*.json*
+#*/**/*.json*
 */**/*.sha*
 */**/*.csv*
+*/secrets/
+
 
 # Model weights and checkpoints
 */**/pytorch_model.bin
