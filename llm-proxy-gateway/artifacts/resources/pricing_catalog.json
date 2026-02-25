@@ -1,0 +1,40 @@
+{
+  "providers": {
+    "openai": {
+      "gpt-4o-mini": {
+        "input_per_1k": 0.001,
+        "output_per_1k": 0.002,
+        "embedding_per_1k": 0.0
+      },
+      "text-embedding-3-small": {
+        "input_per_1k": 0.0002,
+        "output_per_1k": 0.0,
+        "embedding_per_1k": 0.0002
+      },
+      "default": {
+        "input_per_1k": 0.01,
+        "output_per_1k": 0.02,
+        "embedding_per_1k": 0.002
+      }
+    },
+    "google": {
+      "gemini-1.5-pro": {
+        "input_per_1k": 0.0005,
+        "output_per_1k": 0.001,
+        "embedding_per_1k": 0.0
+      },
+      "text-embedding-004": {
+        "input_per_1k": 0.0001,
+        "output_per_1k": 0.0,
+        "embedding_per_1k": 0.0001
+      }
+    },
+    "xai": {
+      "grok-2": {
+        "input_per_1k": 0.002,
+        "output_per_1k": 0.004,
+        "embedding_per_1k": 0.0
+      }
+    }
+  }
+}

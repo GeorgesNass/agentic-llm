@@ -1,0 +1,637 @@
+openapi: 3.0.0
+
+servers:
+  - description: Local development
+    url: http://localhost:8000/
+    
+security:
+  - x-api-key: []
+
+info:
+  version: "1.0.0"
+  title: LLM proxy gateway (MVP)
+  description: |-
+    Proxy services interface for LLMs (Large Language Model) agents and model engines
+
+    **MVP endpoints** :
+       - _Chat LLM_ : provider/model + pass-through parameters
+       - _Embedding generation_ : provider/model + pass-through parameters
+       - _Simulate cost_ : chat or embeddings (text or folder scan)
+       - _Evaluation_ : compare prediction vs reference (exact match, contains, F1, jaccard, cosine, optional ROUGE/BLEU/BERTScore)
+
+tags:
+  - name: "health"
+    description: "Healthcheck"
+  - name: "chat"
+    description: "Chat with a llm"
+  - name: "embeddings"
+    description: "Generate embeddings"
+  - name: "cost"
+    description: "Simulate costs (chat or embeddings)"
+  - name: "evaluation"
+    description: "Evaluate LLM outputs"
+
+paths:
+  /healthcheck:
+    get:
+      tags:
+        - "health"
+      summary: Healthcheck
+      description: Simple healthcheck endpoint
+      operationId: Healthcheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: llm-proxy-gateway
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /chat/simulateCost:
+    post:
+      tags:
+        - "chat"
+      summary: Simulate chat cost
+      description: Simulate chat cost (approx tokens + config pricing)
+      operationId: SimulateCostChat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulateChatInfos"
+      responses:
+        "200":
+          description: Cost query object simulation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SumulateChatResp"
+        "400":
+          $ref: "#/components/responses/InvalidValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          $ref: "#/components/responses/RequestTimeout"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /chat/query:
+    post:
+      tags:
+        - "chat"
+      summary: Query a LLM (chat completion)
+      description: Query a provider/model with generic pass-through parameters
+      operationId: QueryChatbot
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryChatInfos"
+      responses:
+        "200":
+          description: Query chat object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          $ref: "#/components/responses/InvalidValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          $ref: "#/components/responses/RequestTimeout"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceAnavailable"
+
+  /embeddings/simulateCost:
+    post:
+      tags:
+        - "embeddings"
+      summary: Simulate embeddings cost
+      description: Simulate embeddings cost (approx tokens + config pricing)
+      operationId: SimulateCostEmbeddings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingsSimulateCostInfos"
+      responses:
+        "200":
+          description: Cost embeddings object simulation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingsSimulateCostResp"
+        "400":
+          $ref: "#/components/responses/InvalidValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          $ref: "#/components/responses/RequestTimeout"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /embeddings/create:
+    post:
+      tags:
+        - "embeddings"
+      summary: Create embeddings
+      description: Generate embeddings using provider/model with pass-through parameters
+      operationId: CreateEmbeddings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingsCreateInfos"
+      responses:
+        "200":
+          description: Embeddings response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingsCreateResp"
+        "400":
+          $ref: "#/components/responses/InvalidValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          $ref: "#/components/responses/RequestTimeout"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceAnavailable"
+
+  /evaluation/run:
+    post:
+      tags:
+        - "evaluation"
+      summary: Run evaluation
+      description: Compute metrics between predictions and references
+      operationId: RunEvaluation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluationInfos"
+      responses:
+        "200":
+          description: Evaluation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationResp"
+        "400":
+          $ref: "#/components/responses/InvalidValue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "408":
+          $ref: "#/components/responses/RequestTimeout"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "503":
+          $ref: "#/components/responses/ServiceAnavailable"
+
+components:
+  securitySchemes:
+    x-api-key:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: the DGAPI Key
+
+  schemas:
+    ## ============================================================
+    ## CHAT COST
+    ## ============================================================
+    SimulateChatInfos:
+      type: object
+      required:
+        - llm_name
+        - lst_text_prompt
+      properties:
+        llm_name:
+          type: string
+          default: chatGPT
+          enum:
+            - chatGPT
+            - vertexAI
+            - free
+        model_name:
+          type: string
+          default: gpt-3.5-turbo-16k
+        lst_text_prompt:
+          type: array
+          items:
+            type: string
+        max_tokens_completion:
+          type: number
+          default: 1024
+        show_tokens:
+          type: boolean
+          default: false
+
+    SumulateChatResp:
+      type: object
+      required:
+        - model_name
+        - tokens_values
+        - tokens_price
+      properties:
+        model_name:
+          type: string
+        tokens_values:
+          type: object
+          properties:
+            total_tokens:
+              type: number
+            prompt_text_tokens:
+              type: number
+            completion_tokens:
+              type: number
+        tokens_price:
+          type: object
+          properties:
+            total_price:
+              type: number
+            price_prompt_text:
+              type: number
+            price_model_completion:
+              type: number
+            currency:
+              type: string
+
+    ## ============================================================
+    ## CHAT COMPLETION (GENERIC)
+    ## ============================================================
+    QueryChatInfos:
+      type: object
+      required:
+        - user_email
+        - llm_name
+        - lst_text_prompt
+      properties:
+        user_email:
+          type: string
+        llm_name:
+          type: string
+          default: chatGPT
+          enum:
+            - chatGPT
+            - vertexAI
+            - free
+        model_name:
+          type: string
+          default: gpt-3.5-turbo-16k
+        lst_text_prompt:
+          type: array
+          items:
+            type: string
+        dict_advanced_options:
+          type: object
+          properties:
+            temperature:
+              type: number
+            top_p:
+              type: number
+            max_tokens:
+              type: number
+            stream:
+              type: boolean
+            stop:
+              type: array
+              items:
+                type: string
+        show_tokens:
+          type: boolean
+          default: false
+
+    QueryResponse:
+      type: object
+      required:
+        - model_name
+        - chat_response
+      properties:
+        model_name:
+          type: string
+        chat_response:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                example: assistant
+              content:
+                type: string
+        query_price:
+          type: object
+          properties:
+            total_price:
+              type: number
+            currency:
+              type: string
+        tokens_values:
+          type: object
+          properties:
+            total_tokens:
+              type: number
+            prompt_text_tokens:
+              type: number
+            completion_tokens:
+              type: number
+
+    ## ============================================================
+    ## EMBEDDINGS COST
+    ## ============================================================
+    EmbeddingsSimulateCostInfos:
+      type: object
+      required:
+        - llm_name
+      properties:
+        llm_name:
+          type: string
+          default: chatGPT
+          enum:
+            - chatGPT
+            - vertexAI
+            - free
+        embedding_name:
+          type: string
+          default: text-embedding-3-small
+        providers:
+          type: array
+          items:
+            type: string
+          example: ["openai", "google", "xai"]
+        text:
+          type: string
+          description: Direct text input (mutually exclusive with path)
+        path:
+          type: string
+          description: Folder path containing .txt files (mutually exclusive with text)
+        recursive:
+          type: boolean
+          default: true
+        chunk_size:
+          type: number
+          default: 2000
+        chunk_overlap:
+          type: number
+          default: 200
+        include_per_file:
+          type: boolean
+          default: false
+
+    EmbeddingsSimulateCostResp:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            mode:
+              type: string
+              example: embeddings
+            n_files:
+              type: number
+            n_chars:
+              type: number
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              provider:
+                type: string
+              model:
+                type: string
+              input_tokens:
+                type: number
+              total_tokens:
+                type: number
+              estimated_cost_usd:
+                type: number
+              estimation_mode:
+                type: string
+              price_source:
+                type: string
+        per_file:
+          type: array
+          items:
+            type: object
+            properties:
+              file_path:
+                type: string
+              n_chars:
+                type: number
+              approx_tokens:
+                type: number
+        warnings:
+          type: array
+          items:
+            type: string
+
+    ## ============================================================
+    ## EMBEDDINGS CREATE
+    ## ============================================================
+    EmbeddingsCreateInfos:
+      type: object
+      required:
+        - provider
+        - model
+        - input
+      properties:
+        provider:
+          type: string
+          example: openai
+        model:
+          type: string
+          example: text-embedding-3-small
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        extra:
+          type: object
+          additionalProperties: true
+
+    EmbeddingsCreateResp:
+      type: object
+      properties:
+        provider:
+          type: string
+        model:
+          type: string
+        vectors:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: number
+            completion_tokens:
+              type: number
+            total_tokens:
+              type: number
+
+    ## ============================================================
+    ## EVALUATION
+    ## ============================================================
+    EvaluationInfos:
+      type: object
+      required:
+        - predictions
+        - references
+      properties:
+        predictions:
+          type: array
+          items:
+            type: string
+        references:
+          type: array
+          items:
+            type: string
+        enable_rouge_bleu_bertscore:
+          type: boolean
+          default: false
+
+    EvaluationResp:
+      type: object
+      properties:
+        n_samples:
+          type: number
+        metrics:
+          type: object
+          additionalProperties: true
+        per_sample:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    ## ============================================================
+    ## ERRORS (KEEP)
+    ## ============================================================
+    StdErrorResponse:
+      type: object
+      required:
+        - code
+        - details
+        - message
+        - type
+        - timestamp
+      properties:
+        code:
+          type: string
+          example: 400
+        details:
+          type: string
+          example: "JSON parse error: Cannot deserialize value of type"
+        message:
+          type: string
+          example: "Http Message Not Readable error"
+        type:
+          type: string
+          example: BAD_REQUEST
+        timestamp:
+          type: string
+
+  responses:
+    NotFound:
+      description: Ressource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    Forbidden:
+      description: Request forbidden by server
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    InvalidValue:
+      description: Invalid value supplied
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    Unauthorized:
+      description: Unauthorized user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    UnprocessableContent:
+      description: Unprocessable content due to document confidence rate
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    RequestTimeout:
+      description: Request Timeout
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    RequestEntityTooLarge:
+      description: Request Entity Too Large
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    TooManyRequests:
+      description: The request is aborted, no available instance
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    ServiceAnavailable:
+      description: Service Unavailable
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
+    UnexpectedError:
+      description: Unknown server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/StdErrorResponse"
