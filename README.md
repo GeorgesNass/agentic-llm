@@ -6,6 +6,9 @@ This repository acts as a **parent container** for multiple independent sub-proj
 
 ## Repository Structure
 
+- **autonomous-ai-platform**  
+  Complete agentic LLM platform supporting local models, GPU inference via vLLM, RAG pipelines, Text-to-SQL, evaluation, and Airflow orchestration.
+
 - **llm-proxy-gateway**  
   LLM routing and proxy layer for model selection, policies, observability, and cost control.
 
