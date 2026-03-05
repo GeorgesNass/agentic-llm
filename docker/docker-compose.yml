@@ -1,0 +1,229 @@
+version: "3.9"
+
+services:
+  ## ===========================================================
+  ## MAIN APP: FastAPI (MCP + API)
+  ## ===========================================================
+  app:
+    build:
+      context: ..                               ## project root
+      dockerfile: docker/Dockerfile             ## app Dockerfile
+    container_name: autonomous_app              ## FastAPI container name
+    env_file:
+      - ../.env                                 ## load .env
+    environment:
+      - PYTHONPATH=/app                         ## enable src imports
+    volumes:
+      - ../src:/app/src:rw                      ## mount python package
+      - ../data:/app/data:rw                    ## data access
+      - ../artifacts:/app/artifacts:rw          ## artifacts persistence
+      - ../logs:/app/logs:rw                    ## logs persistence
+      - ../monitoring:/app/monitoring:rw        ## monitoring assets
+      - ../airflow:/app/airflow:rw              ## airflow assets (optional)
+    ports:
+      - "8000:8000"                             ## FastAPI port
+    restart: unless-stopped
+    command: ["python", "main.py", "--run-api", "--host", "0.0.0.0", "--port", "8000"]
+
+  ## ===========================================================
+  ## UI: Streamlit (Chat + Control Center)
+  ## ===========================================================
+  streamlit:
+    build:
+      context: ..                               ## reuse same image build
+      dockerfile: docker/Dockerfile
+    container_name: autonomous_streamlit
+    env_file:
+      - ../.env
+    environment:
+      - PYTHONPATH=/app                         ## enable src imports
+    volumes:
+      - ../src:/app/src:rw
+      - ../data:/app/data:rw
+      - ../artifacts:/app/artifacts:rw
+      - ../logs:/app/logs:rw
+    ports:
+      - "8501:8501"                             ## Streamlit port
+    restart: unless-stopped
+    command:
+      [
+        "streamlit",
+        "run",
+        "src/core/streamlit_app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501"
+      ]
+    depends_on:
+      - app                                     ## ensure API is up
+
+  ## ===========================================================
+  ## AIRFLOW: Webserver
+  ## ===========================================================
+  airflow-webserver:
+    image: apache/airflow:2.9.3-python3.11       ## stable Airflow image
+    container_name: airflow_webserver
+    user: "0:0"                                  ## avoids permissions issues on bind mounts
+    env_file:
+      - ../.env                                  ## reuse env (optional)
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor        ## simple executor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False                ## no examples
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db  ## sqlite
+      - AIRFLOW_HOME=/opt/airflow                         ## airflow home
+      - PYTHONPATH=/opt/airflow:/opt/airflow/project       ## airflow + project path
+      - _AIRFLOW_WWW_USER_USERNAME=admin                   ## default admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin                   ## default admin
+      - _AIRFLOW_WWW_USER_FIRSTNAME=Admin                  ## default admin
+      - _AIRFLOW_WWW_USER_LASTNAME=User                    ## default admin
+      - _AIRFLOW_WWW_USER_EMAIL=admin@example.com          ## default admin
+      - _AIRFLOW_WWW_USER_ROLE=Admin                       ## default admin
+    volumes:
+      - ../airflow/airflow.cfg:/opt/airflow/airflow.cfg:ro ## airflow config
+      - ../airflow/dags:/opt/airflow/airflow/dags:rw       ## dags folder
+      - ../logs:/opt/airflow/logs:rw                       ## airflow logs
+      - ../airflow/airflow.db:/opt/airflow/airflow.db:rw   ## sqlite persistence
+      - ..:/opt/airflow/project:rw                          ## project mount (src/*)
+    ports:
+      - "8082:8080"                               ## Airflow UI
+    restart: unless-stopped
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow users create
+          --username ${_AIRFLOW_WWW_USER_USERNAME}
+          --firstname ${_AIRFLOW_WWW_USER_FIRSTNAME}
+          --lastname ${_AIRFLOW_WWW_USER_LASTNAME}
+          --role ${_AIRFLOW_WWW_USER_ROLE}
+          --email ${_AIRFLOW_WWW_USER_EMAIL}
+          --password ${_AIRFLOW_WWW_USER_PASSWORD} || true &&
+        airflow webserver
+      "
+
+  ## ===========================================================
+  ## AIRFLOW: Scheduler (Prometheus metrics enabled via airflow.cfg)
+  ## ===========================================================
+  airflow-scheduler:
+    image: apache/airflow:2.9.3-python3.11
+    container_name: airflow_scheduler
+    user: "0:0"
+    env_file:
+      - ../.env
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW_HOME=/opt/airflow
+      - PYTHONPATH=/opt/airflow:/opt/airflow/project
+    volumes:
+      - ../airflow/airflow.cfg:/opt/airflow/airflow.cfg:ro
+      - ../airflow/dags:/opt/airflow/airflow/dags:rw
+      - ../logs:/opt/airflow/logs:rw
+      - ../airflow/airflow.db:/opt/airflow/airflow.db:rw
+      - ..:/opt/airflow/project:rw
+    ports:
+      - "8793:8793"                               ## Airflow scheduler Prometheus port
+    restart: unless-stopped
+    command: >
+      bash -c "
+        airflow db init &&
+        airflow scheduler
+      "
+    depends_on:
+      - airflow-webserver
+
+  ## ===========================================================
+  ## VECTOR DB: Chroma (optional backend)
+  ## ===========================================================
+  vectordb:
+    image: chromadb/chroma:latest                 ## chroma server
+    container_name: vectordb
+    environment:
+      - IS_PERSISTENT=TRUE                        ## persist vectors
+      - PERSIST_DIRECTORY=/chroma/chroma          ## persistence path
+    volumes:
+      - ../artifacts/vector_store:/chroma/chroma:rw ## persist store
+    ports:
+      - "8001:8000"                               ## chroma http port
+    restart: unless-stopped
+
+  ## ===========================================================
+  ## PROMETHEUS
+  ## ===========================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro  ## config
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    depends_on:
+      - app
+      - airflow-webserver
+      - airflow-scheduler
+
+  ## ===========================================================
+  ## GRAFANA
+  ## ===========================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin              ## grafana admin user
+      - GF_SECURITY_ADMIN_PASSWORD=admin          ## grafana admin password
+      - GF_USERS_ALLOW_SIGN_UP=false              ## disable signup
+    volumes:
+      - ../monitoring/grafana:/var/lib/grafana/dashboards:rw            ## dashboards files
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  ## ===========================================================
+  ## NODE EXPORTER (host metrics)
+  ## ===========================================================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
+  ## ===========================================================
+  ## vLLM (GPU ONLY) - optional local OpenAI-compatible server
+  ## ===========================================================
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm
+    profiles:
+      - gpu                                      ## run only with: docker compose --profile gpu up
+    env_file:
+      - ../.env
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}                   ## HF token for gated models
+    volumes:
+      - ../artifacts/models:/models:rw           ## model cache / downloads
+    ports:
+      - "8002:8000"                              ## vLLM OpenAI-compatible port
+    restart: unless-stopped
+    command:
+      [
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--model", "${VLLM_MODEL_ID:-mistralai/Mistral-7B-Instruct-v0.3}"
+      ]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: ["gpu"]
+
+## ===========================================================
+## NETWORK CONFIGURATION
+## ===========================================================
+networks:
+  default:
+    name: autonomous_ai_platform_network          ## shared network for all services
