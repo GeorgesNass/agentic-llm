@@ -1,0 +1,72 @@
+# monitoring/prometheus.yml
+
+global:
+  scrape_interval: 10s           ## default scrape interval for all targets
+  evaluation_interval: 10s       ## rule evaluation interval
+  scrape_timeout: 5s             ## max time to wait for a scrape
+
+## ============================================================
+## SCRAPE CONFIGURATIONS
+## ============================================================
+
+scrape_configs:
+
+  ## ------------------------------------------------------------
+  ## FastAPI application metrics
+  ## ------------------------------------------------------------
+  - job_name: "autonomous_ai_platform_app"   ## main API service
+    metrics_path: "/metrics"                 ## Prometheus metrics endpoint
+    static_configs:
+      - targets:
+          - "app:8000"                       ## FastAPI container (Docker service name)
+
+  ## ------------------------------------------------------------
+  ## Prometheus self monitoring
+  ## ------------------------------------------------------------
+  - job_name: "prometheus"                   ## Prometheus internal metrics
+    static_configs:
+      - targets:
+          - "prometheus:9090"                ## Prometheus service
+
+  ## ------------------------------------------------------------
+  ## Airflow webserver metrics
+  ## ------------------------------------------------------------
+  - job_name: "airflow_webserver"            ## Airflow webserver metrics
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "airflow-webserver:8080"         ## Airflow webserver container
+
+  ## ------------------------------------------------------------
+  ## Airflow scheduler metrics
+  ## ------------------------------------------------------------
+  - job_name: "airflow_scheduler"            ## Airflow scheduler metrics
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "airflow-scheduler:8793"         ## scheduler prometheus endpoint
+
+  ## ------------------------------------------------------------
+  ## Streamlit UI metrics (if enabled)
+  ## ------------------------------------------------------------
+  - job_name: "streamlit_ui"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "streamlit:8501"                 ## Streamlit container
+
+  ## ------------------------------------------------------------
+  ## Node / container metrics (optional but recommended)
+  ## ------------------------------------------------------------
+  - job_name: "node_exporter"
+    static_configs:
+      - targets:
+          - "node-exporter:9100"             ## system metrics (CPU, RAM, disk)
+
+  ## ------------------------------------------------------------
+  ## Vector database metrics (if used)
+  ## ------------------------------------------------------------
+  - job_name: "vector_store"
+    static_configs:
+      - targets:
+          - "vectordb:8001"                  ## FAISS / Chroma service (if exposed)
