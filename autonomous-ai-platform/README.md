@@ -1,130 +1,44 @@
 # 🤖 Autonomous AI Platform
 
-## 1. Project Overview
-
 This project implements a complete **agentic LLM platform** for local and API-based inference.
 
-The objective is to:
+## 🎯 Project Overview
 
-- Run an agentic loop (plan → execute tools → self-check → finalize)
-- Support **local quantized models (GGUF)** via llama-cpp-python (CPU or CUDA GPU)
-- Support **GPU server inference** via **vLLM** (OpenAI-compatible)
-- Support external LLM APIs: **ChatGPT (OpenAI), Grok (xAI), Gemini (Google)**
-- Provide **RAG ingestion + retrieval** on local corpora
-- Provide **Text-to-SQL** on a local **SQLite** database
-- Orchestrate the full stack with **Airflow**
-- Evaluate outputs (LLM-as-a-judge + metrics)
-- Export telemetry with **Prometheus** and visualize via **Grafana**
+The platform supports:
 
-The platform is designed to be **local-first**, Docker-friendly, and production-clean.
+* Run an agentic loop (plan → execute tools → self-check → finalize)
+* Support **local quantized models (GGUF)** via llama-cpp-python (CPU or CUDA GPU)
+* Support **GPU server inference** via **vLLM** (OpenAI-compatible)
+* Support external LLM APIs: **ChatGPT (OpenAI), Grok (xAI), Gemini (Google)**
+* Provide **RAG ingestion + retrieval** on local corpora
+* Provide **Text-to-SQL** on a local **SQLite** database
+* Orchestrate the full stack with **Airflow**
+* Evaluate outputs (LLM-as-a-judge + metrics)
+* Export telemetry with **Prometheus** and visualize via **Grafana**
 
----
-
-## 2. Problem Statement
-
-Modern LLM systems are:
-
-- Multi-provider (local, OpenAI, xAI, Google)
-- Cost-sensitive and hardware-dependent
-- Tool-augmented (RAG, SQL, web, internal tools)
-- Hard to evaluate reliably
-- Hard to operate locally with observability
-
-Challenges:
-
-- Switching between CPU / GPU / API at runtime
-- Local model provisioning (HuggingFace download, GGUF files)
-- RAG ingestion and persistence (FAISS / Chroma)
-- Reproducible orchestration (Airflow)
-- Structured errors (no raw stack traces)
-- Monitoring (Prometheus metrics + Grafana dashboards)
-
-This project addresses these constraints through:
-
-- Backend routing (local llama.cpp / vLLM / API)
-- HuggingFace model download support
-- Unified RAG ingestion + retrieval layer
-- Text-to-SQL execution with safe SQLite management
-- Airflow DAGs for ingestion, evaluation, monitoring
-- Structured exceptions + standardized API responses
-- Prometheus exporters and local Grafana dashboards
+The system is designed to be **local-first, modular, and production-ready**.
 
 ---
 
-## 3. Agentic Strategy
+## ⚙️ Tech Stack
 
-### Objective
+Core technologies used in the platform:
 
-Produce reliable answers by combining:
-
-- A planning step
-- Tool execution (RAG search, SQL queries)
-- Self-evaluation (critic)
-- Final synthesis
-
-### Supported Tools
-
-- RAG retrieval (chunking → embeddings → vector search)
-- SQL query execution (Text-to-SQL → SQLite)
-- Optional evaluation scoring (LLM-as-a-judge)
-
-### Execution Flow
-
-- Reasoning agent builds a step plan
-- Executor runs tools safely
-- Critic validates results and can request another loop
-- Aggregator composes the final response
+* Python
+* Docker & Docker Compose
+* Airflow
+* Streamlit
+* llama.cpp / GGUF models
+* vLLM
+* OpenAI / xAI / Google APIs
+* FAISS / Chroma vector stores
+* SQLite
+* Prometheus
+* Grafana
 
 ---
 
-## 4. Pipeline Architecture
-
-```
-User Query
-    ↓
-Routing (auto/local/api + CPU/GPU)
-    ↓
-Reasoning Agent (plan)
-    ↓
-Executor (tools: RAG, SQL)
-    ↓
-Optional Self-correction Loop
-    ↓
-Aggregator (final answer)
-    ↓
-Evaluation (optional)
-    ↓
-Prometheus metrics + Grafana dashboards
-```
-
----
-
-## 5. Evaluation & Monitoring
-
-The monitoring layer provides:
-
-- Request counts, latency, failures
-- Tool-level metrics (RAG/SQL)
-- LLM provider usage
-- Evaluation scoring exports
-
-Outputs are exported in:
-
-```
-artifacts/reports/
-artifacts/evaluations/
-```
-
-Prometheus config and Grafana dashboards are stored in:
-
-```
-monitoring/prometheus.yml
-monitoring/grafana/
-```
-
----
-
-## 6. Project Structure
+## 📂 Project Structure
 
 ```
 autonomous-ai-platform/
@@ -219,38 +133,143 @@ autonomous-ai-platform/
 		├── io_utils.py                  ## Filesystem & file discovery
 		└── llm_utils.py                 ## Chunk + embeddings helpers
 ```
+---
+
+## ❓ Problem Statement
+
+Modern LLM systems introduce multiple operational challenges:
+
+* Multiple inference providers (local models, API providers)
+* Hardware constraints (CPU vs GPU)
+* Tool orchestration (RAG, SQL, custom tools)
+* Difficult evaluation and observability
+* Local deployment complexity
+
+Key problems addressed:
+
+* Runtime routing between **local models, GPU inference, and APIs**
+* Reliable **RAG ingestion and retrieval**
+* Safe **Text-to-SQL execution**
+* Reproducible pipelines with **Airflow**
+* Structured error handling
+* Monitoring with **Prometheus and Grafana**
+
+---
+## 🧠 Approach / Methodology / Strategy
+
+The platform follows an **agentic LLM architecture** combining tool orchestration, automated evaluation, and monitoring to produce reliable answers.
+
+Core principles:
+
+* **Tool-augmented reasoning** using RAG retrieval and Text-to-SQL execution
+* **Multi-backend inference routing** (local models, GPU servers, external APIs)
+* **Evaluation-driven reliability** using LLM-as-a-judge scoring and metrics
+* **Operational monitoring** with Prometheus telemetry and Grafana dashboards
+
+### Tool Ecosystem
+
+| Component         | Role                                                     |
+| ----------------- | -------------------------------------------------------- |
+| RAG Retrieval     | Document ingestion, chunking, embeddings, vector search  |
+| Text-to-SQL       | Natural language → SQL queries executed safely on SQLite |
+| Local LLM Runtime | Quantized GGUF models via llama-cpp                      |
+| API LLM Providers | OpenAI (ChatGPT), xAI (Grok), Google (Gemini)            |
+| GPU Inference     | High-throughput inference via vLLM                       |
+| Evaluation        | LLM-as-a-judge scoring and response validation           |
+| Monitoring        | Prometheus metrics and Grafana dashboards                |
 
 ---
 
-## 7. Prerequisites
+## 🏗 Pipeline Architecture
 
-- Python 3.11+
-- Docker & Docker Compose (recommended)
-- GPU optional (CUDA required for vLLM / llama.cpp GPU offload)
-
-### Ubuntu Example
-
-```bash
-sudo apt update
-sudo apt install python3 python3-pip
-python3 --version
+```
+User Query
+    ↓
+Routing (local / API / GPU)
+    ↓
+Reasoning Agent
+    ↓
+Executor (RAG / SQL tools)
+    ↓
+Self-Correction Loop
+    ↓
+Aggregator
+    ↓
+Evaluation
+    ↓
+Prometheus Metrics
+    ↓
+Grafana Dashboards
 ```
 
 ---
 
-## 8. Setup
+## 📊 Exploratory Data Analysis
 
-### Python
+When using RAG pipelines, the platform performs preprocessing steps such as:
+
+* document ingestion
+* text normalization
+* chunk distribution analysis
+* embedding generation
+* vector index inspection
+
+Processed artifacts are stored in:
+
+```
+data/processed/
+artifacts/vector_store/
+```
+
+---
+
+## 🔧 Setup & Installation
+
+In this section we explain the minimum OS verification, python usage and docker setup.
+
+### 1. Requirements
+
+* Python **3.11+**
+* Docker & Docker Compose (recommended)
+* Optional GPU with **CUDA**
+
+### 2. OS prerequists
+
+Verify that you have the necessairy packages installed.
+
+#### Windows / WSL2 (recommended)
+
+```bash
+# PowerShell
+wsl --status
+wsl --install
+wsl --list --online
+wsl --install -d Ubuntu
+wsl -d Ubuntu
+
+docker --version
+docker compose version
+```
+
+#### Ubuntu
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip build-essential curl git
+python3 --version
+```
+
+### 3. Python environment
 
 ```bash
 python -m venv .llm_platf
-source .llm_platf/bin/activate                              ## Windows: .llm_platf\Scripts\activate.bat
-pip install --upgrade pip                     				## for windows : .llm_platf\Scripts\python.exe -m pip install --upgrade pip 
+source .llm_platf/bin/activate          ## Windows: .llm_platf\Scripts\activate.bat
+pip install --upgrade pip               ## for windows : .llm_platf\Scripts\python.exe -m pip install --upgrade pip 
 pip install -r requirements.txt
 python -m pip check
 ```
 
-### Docker
+### 4. Docker setup
 
 ```bash
 docker compose -f docker/docker-compose.yml build
@@ -259,7 +278,7 @@ docker compose -f docker/docker-compose.yml up
 
 ---
 
-## ✅ Full System Verification (End-to-End)
+## ▶️ Usage & End-to-End Testing
 
 ```bash
 ## Check raw input data folders
@@ -327,7 +346,20 @@ pytest -q
 
 ---
 
-## Authors
+## 📛 Common Errors & Troubleshooting
 
-**Georges Nassopoulos**  
-Email: georges.nassopoulos@gmail.com
+| Error                | Cause                    | Solution                              |
+| -------------------- | ------------------------ | ------------------------------------- |
+| ModuleNotFoundError  | Missing dependencies     | Run `pip install -r requirements.txt` |
+| Docker build failure | Incorrect Docker version | Update Docker                         |
+| API 401 error        | Missing API key          | Check `.env` configuration            |
+| CUDA not detected    | GPU drivers missing      | Install CUDA drivers                  |
+
+---
+
+## 👤 Author
+
+**Georges Nassopoulos**
+[georges.nassopoulos@gmail.com](mailto:georges.nassopoulos@gmail.com)
+
+**Status:** Research / Professional NLP project
