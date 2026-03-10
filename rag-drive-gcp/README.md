@@ -1,189 +1,271 @@
-# rag-drive-gcp
+# ☁️ RAG Pipeline with Google Drive & Vertex AI (GCP)
 
-## Overview
-
-`rag-drive-gcp` is an end-to-end **Retrieval-Augmented Generation (RAG)** project
+The project implements an **end-to-end Retrieval-Augmented Generation (RAG) pipeline**
 built on **Google Cloud Platform**.
 
-The application provides:
-- Google Drive document ingestion
-- Local or remote OCR processing
-- Text chunking and embedding generation with Vertex AI
-- Persistent storage of text and embeddings in Google Cloud Storage
-- Interactive RAG chat interface using Streamlit
-- CLI pipeline for ingestion and querying
-- Docker-based execution
+---
 
-This project is designed as a **technical / portfolio / production-ready POC**.
+## 🎯 Project Overview
+
+Main capabilities:
+
+* Google Drive document ingestion
+* Local or remote OCR processing
+* Text chunking and embedding generation using **Vertex AI**
+* Persistent storage of text and embeddings in **Google Cloud Storage**
+* Interactive **RAG chat interface with Streamlit**
+* CLI pipeline for ingestion and querying
+* Docker-based execution
+
+The system transforms documents stored in **Google Drive** into **searchable knowledge bases enabling contextual question answering**.
 
 ---
 
-## Project Structure
+## ⚙️ Tech Stack
+
+Core technologies used in the project:
+
+* Python
+* Streamlit
+* Google Cloud Platform
+* Google Drive API
+* Google Cloud Storage (GCS)
+* Vertex AI embeddings
+* Retrieval-Augmented Generation (RAG)
+* Docker & Docker Compose
+
+---
+
+## 📂 Project Structure
+
+```text
+rag-drive-gcp/
+├── main.py                         ## Streamlit application entrypoint
+├── launch_pipeline.py              ## CLI pipeline launcher
+├── requirements.txt                ## Python dependencies
+├── README.md                       ## Project documentation
+├── .env                            ## Environment configuration
+│
+├── docker/
+│   ├── Dockerfile                  ## Docker image definition
+│   └── docker-compose.yml          ## Docker Compose configuration
+│
+├── data/                           ## Local data workspace
+├── logs/                           ## Application logs
+│
+├── tests/
+│   └── test_core.py                ## Minimal unit tests
+│
+└── src/
+    ├── core/
+    │   ├── ocr.py                  ## OCR processing
+    │   ├── rag.py                  ## RAG retrieval pipeline
+    │   ├── vertex.py               ## Vertex AI embeddings
+    │   └── persistence.py          ## GCS persistence utilities
+    │
+    ├── io/
+    │   ├── drive.py                ## Google Drive ingestion
+    │   └── gcs.py                  ## Google Cloud Storage operations
+    │
+    ├── model/
+    │   └── settings.py             ## Application configuration
+    │
+    └── utils/
+        ├── logging_utils.py        ## Logging utilities
+        └── utils.py                ## Shared helpers
+```
+
+---
+
+## ❓ Problem Statement
+
+Many organizations store large amounts of documents in **Google Drive**.
+
+Challenges include:
+
+* difficulty searching large document collections
+* lack of semantic search capabilities
+* manual document exploration
+* absence of contextual question answering
+
+This project solves these issues using a **cloud-native RAG pipeline** combining:
+
+* document ingestion
+* OCR extraction
+* embedding-based retrieval
+* contextual LLM responses
+
+---
+
+## 🧠 Approach / Methodology / Strategy
+
+The system implements a **three-stage RAG architecture**.
+
+### Document Ingestion
+
+* Documents are listed and downloaded from Google Drive
+* OCR is applied if required
+* Text is extracted and normalized
+
+---
+
+### Embedding & Storage
+
+* Text is split into chunks
+* Chunks are embedded using **Vertex AI**
+* Text and embeddings are stored in **Google Cloud Storage**
+
+---
+
+### RAG Query
+
+* User questions are embedded
+* Relevant chunks are retrieved
+* The LLM generates contextual answers
+
+---
+
+## 🏗 Pipeline Architecture
+
+```text id="7xti2o"
+Google Drive
+      ↓
+Document Download
+      ↓
+OCR (optional)
+      ↓
+Text Chunking
+      ↓
+Vertex AI Embeddings
+      ↓
+Storage in GCS
+      ↓
+Vector Retrieval
+      ↓
+LLM Response
+      ↓
+Streamlit RAG Chat
+```
+
+---
+
+## 📊 Exploratory Data Analysis
+
+The project allows diagnostics on the ingestion process:
+
+* number of documents processed
+* chunk statistics
+* embedding generation diagnostics
+* ingestion logs
+
+Artifacts can be stored in:
 
 ```
-    rag-drive-gcp/
-    ├── main.py                     # Streamlit application entrypoint
-    ├── launch_pipeline.py          # CLI pipeline launcher
-    ├── requirements.txt
-    ├── README.md
-    ├── .env
-    ├── docker/
-    │   ├── Dockerfile
-    │   └── docker-compose.yml
-    ├── data/                       # Local data workspace
-    ├── logs/                       # Application logs
-    ├── tests/
-    │   └── test_core.py            # Minimal unit tests
-    └── src/
-        ├── __init__.py
-        ├── core/
-        │   ├── __init__.py
-        │   ├── ocr.py
-        │   ├── rag.py
-        │   ├── vertex.py
-        │   └── persistence.py
-        ├── io/
-        │   ├── __init__.py
-        │   ├── drive.py
-        │   └── gcs.py
-        ├── model/
-        │   ├── __init__.py
-        │   └── settings.py
-        └── utils/
-            ├── __init__.py
-            ├── logging_utils.py
-            └── utils.py
-
+logs/
+data/
 ```
----
-
-## Global GCS Variables
-
-The following variables are required to enable **persistent storage**
-of text and embeddings artifacts in Google Cloud Storage.
-
-| Variable name | Description | Placeholder |
-|--------------|------------|-------------|
-| `GCS_BUCKET_TEXT` | GCS bucket for extracted text files | `<YOUR_GCS_TEXT_BUCKET>` |
-| `GCS_PREFIX_TEXT` | Prefix path for text artifacts | `<YOUR_GCS_TEXT_PREFIX>` |
-| `GCS_BUCKET_EMB` | GCS bucket for embeddings artifacts | `<YOUR_GCS_EMBEDDINGS_BUCKET>` |
-| `GCS_PREFIX_EMB` | Prefix path for embeddings artifacts | `<YOUR_GCS_EMBEDDINGS_PREFIX>` |
 
 ---
 
-## Prerequisites
+## 🔧 Setup & Installation
 
-- Python 3.10+
-- Docker and Docker Compose
-- Google Cloud Platform account
-- Service Account with:
-  - Google Drive API access
-  - Vertex AI permissions
-  - Google Cloud Storage read/write permissions
+In this section we explain the minimum OS verification, python usage and docker setup.
+
+### 1. Requirements
+
+* Python **3.10+**
+* Docker & Docker Compose
+* Google Cloud Platform account
+* Service Account with:
+
+  * Google Drive API access
+  * Vertex AI permissions
+  * Google Cloud Storage read/write permissions
 
 ---
 
-## Windows & WSL2 Prerequisites
+### 2. OS prerequisites
 
-### PowerShell
+Verify that required packages are installed.
+
+#### Windows / WSL2 (recommended)
+
 ```powershell
 wsl --status
 wsl --install
 wsl --list --online
 wsl --install -d Ubuntu
 wsl -d Ubuntu
+
 docker --version
 docker compose version
 ```
 
-### Ubuntu
+#### Ubuntu
+
 ```bash
 sudo apt update
-sudo apt install -y git
-git --version
+sudo apt install -y python3 python3-venv python3-pip build-essential curl git
+python3 --version
 ```
 
-### Python
-```bash
-python3 --version
-sudo apt install -y python3-pip python3-venv
-```
 ---
 
-## Setup
+### 3. Python environment
 
-### Manual installation
 ```bash
-cd ~/Desktop/git_projects/
 python -m venv .rag_env
-source .rag_env/bin/activate ## .rag_env\Scripts\activate.bat for windows
-pip install --upgrade pip
+source .rag_env/bin/activate		     ## for windows .rag_env\Scripts\activate.bat
+pip install --upgrade pip            ## for windows : .rag_env\Scripts\python.exe -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
 ---
 
-## Docker Usage
+### 4. Docker setup
 
-### Build and start the application
 ```bash
-    docker compose build
-    docker compose up
-```
-The Streamlit application will be available at:
-```
-    http://localhost:8501
+docker compose -f docker/docker-compose.yml build
+docker compose -f docker/docker-compose.yml up
 ```
 
 ---
 
-## Application Workflow
+## ▶️ Usage & End-to-End Testing
 
-1. **Ingestion**
-   - Documents are listed and downloaded from Google Drive
-   - OCR is applied if needed (local Docker or remote microservice)
-   - Text is chunked and embedded using Vertex AI
-   - Artifacts are uploaded to Google Cloud Storage
-
-2. **Persistence**
-   - Embeddings and metadata are stored in GCS
-   - Index can be reloaded on application restart
-
-3. **RAG Chat**
-   - User questions are embedded
-   - Relevant chunks are retrieved
-   - The LLM generates contextual answers
-
----
-
-## CLI Usage
-
-### Run ingestion
 ```bash
-    python launch_pipeline.py --mode ingest --drive-folder-id <FOLDER_ID>
+## Run document ingestion
+python launch_pipeline.py --mode ingest --drive-folder-id <FOLDER_ID>
+
+## Run query
+python launch_pipeline.py --mode query --question "What is this document about?"
+
+## Launch Streamlit interface
+streamlit run main.py
+
+## Verify interface
+curl -X GET http://localhost:8501
+
+## Run tests
+pytest -q
 ```
-
-### Run query
-```bash
-    python launch_pipeline.py --mode query --question "What is this document about?"
-```
----
-
-## Tests
-
-Minimal unit tests are provided.
-```bash
-    pytest
-```
-
-Tests cover:
-- Settings loading
-- Text chunking
-- Basic RAG retrieval logic
 
 ---
 
-## Author
+## 📛 Common Errors & Troubleshooting
 
-Georges Nassopoulos  
-Email: georges.nassopoulos@gmail.com  
-Status: Technical / Portfolio project
+| Error                         | Cause                               | Solution                     |
+| ----------------------------- | ----------------------------------- | ---------------------------- |
+| Google Drive API error        | Invalid service account permissions | Verify Drive API access      |
+| Vertex AI embedding failure   | Incorrect GCP configuration         | Verify Vertex AI credentials |
+| GCS upload failure            | Bucket permission error             | Check GCS IAM roles          |
+| Streamlit application failure | Dependency mismatch                 | Reinstall requirements       |
+
+---
+
+## 👤 Author
+
+**Georges Nassopoulos**
+[georges.nassopoulos@gmail.com](mailto:georges.nassopoulos@gmail.com)
+
+**Status:** Cloud RAG / LLM Engineering Project
