@@ -1,127 +1,223 @@
-# local-quantization
+# ⚡ Local LLM Quantization Pipeline
 
-## Overview
-
-`local-quantization` is an end-to-end **local LLM quantization project** focused on **efficient inference on CPU and GPU**, while preserving a strong **speed ↔ quality trade-off**.
-
-The application provides:
-- Multiple quantization backends (**GGUF / AWQ / GPTQ / bitsandbytes / ONNX**)
-- CPU and GPU inference targets (Windows / Linux / cloud VM)
-- Calibration-aware post-training quantization (PTQ)
-- Deterministic benchmarking for fair comparison
-- CLI-based pipeline execution
-- Docker-based execution
-
-This project is designed as a **technical / portfolio / production-ready POC** for **local and edge-friendly LLM inference**.
+The project provides an **end-to-end pipeline for local LLM quantization**, enabling efficient  **CPU and GPU inference** while maintaining a strong **speed ↔ quality trade-off**.
 
 ---
 
-## Project Structure
+## 🎯 Project Overview
+
+Main capabilities:
+
+* Multiple quantization backends (**GGUF / AWQ / GPTQ / bitsandbytes / ONNX**)
+* CPU and GPU inference targets
+* Calibration-aware post-training quantization
+* Deterministic benchmarking for fair comparison
+* CLI-driven pipeline execution
+* Docker-based execution
+
+The system converts base LLM checkpoints into **optimized quantized artifacts suitable for local inference and edge deployment**.
+
+---
+
+## ⚙️ Tech Stack
+
+Core technologies used in the project:
+
+* Python
+* PyTorch
+* HuggingFace Transformers
+* bitsandbytes
+* GPTQ
+* AWQ
+* GGUF / llama.cpp
+* ONNX / ONNX Runtime
+* Docker & Docker Compose
+
+---
+
+## 📂 Project Structure
 
 ```text
 local-quantization/
-├── main.py
-├── menu_pipeline.sh
-├── requirements.txt
-├── README.md
-├── .env
-├── pytest.ini
+├── main.py                         ## Pipeline entry point
+├── menu_pipeline.sh                ## Interactive CLI pipeline launcher
+├── requirements.txt                ## Python dependencies
+├── README.md                       ## Project documentation
+├── .env                            ## Environment configuration
+├── pytest.ini                      ## Pytest configuration
+│
 ├── tests/
-│   └── test_unit.py
+│   └── test_unit.py                ## Unit tests
+│
 ├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
+│   ├── Dockerfile                  ## Container definition
+│   └── docker-compose.yml          ## Docker orchestration
+│
 ├── models/
-│   ├── base/
-│   └── adapters/
+│   ├── base/                       ## Base model checkpoints
+│   └── adapters/                   ## Optional LoRA adapters
+│
 ├── artifacts/
-│   ├── runs/
-│   ├── exports/
-│   └── benchmarks/
+│   ├── runs/                       ## Pipeline run metadata
+│   ├── exports/                    ## Quantized model artifacts
+│   └── benchmarks/                 ## Benchmark results
+│
 └── src/
-    ├── __init__.py
-    ├── pipeline.py
+    ├── pipeline.py                 ## Pipeline orchestration
+    │
     ├── core/
-    │   ├── __init__.py
-    │   ├── quantize.py
-    │   ├── calibration.py
-    │   ├── model_loader.py
-    │   ├── backends.py
-    │   ├── export.py
-    │   └── errors.py
+    │   ├── quantize.py             ## Quantization logic
+    │   ├── calibration.py          ## Calibration dataset loading
+    │   ├── model_loader.py         ## Model loading utilities
+    │   ├── backends.py             ## Backend abstraction
+    │   ├── export.py               ## Artifact export utilities
+    │   └── errors.py               ## Custom exceptions
+    │
     ├── config/
-    │   ├── __init__.py
-    │   ├── schemas.py
-    │   └── settings.py
+    │   ├── schemas.py              ## Configuration schemas
+    │   └── settings.py             ## Environment configuration
+    │
     ├── inference/
-    │   ├── __init__.py
-    │   ├── runners.py
-    │   └── decoding.py
+    │   ├── runners.py              ## Inference backends
+    │   └── decoding.py             ## Token decoding strategies
+    │
     └── utils/
-        ├── __init__.py
-        ├── logging_utils.py
-        └── utils.py
+        ├── logging_utils.py        ## Logging utilities
+        └── utils.py                ## Shared helper functions
 ```
 
 ---
 
-## Global Variables
+## ❓ Problem Statement
 
-The following variables are required to configure **model loading, quantization, export, and benchmarking**.
+Running large language models locally presents several challenges:
 
-| Variable name | Description | Placeholder |
-|--------------|------------|-------------|
-| PIPELINE_MODE | quantize \| export \| benchmark \| full | `full` |
-| MODEL_NAME_OR_PATH | HuggingFace model id or local path | `<MODEL_NAME>` |
-| QUANT_BACKEND | Quantization backend | `gguf / awq / gptq / bnb_nf4 / onnx` |
-| QUANT_BITS | Target bit-width | `4 / 8` |
-| CALIBRATION_DATASET | Calibration text dataset | `./data/calibration.txt` |
-| EXPORT_OUTPUT_DIR | Exported artifacts directory | `./artifacts/exports` |
-| BENCHMARK_PROMPTS | Prompt file for benchmarking | `./data/bench_prompts.txt` |
+* large model sizes
+* high memory requirements
+* slow inference on CPU
+* fragmented quantization tooling
+* difficulty benchmarking quantization strategies fairly
+
+This project addresses these issues by providing a **unified pipeline for quantization, export, and benchmarking across multiple backends**.
 
 ---
 
-## Prerequisites
+## 🧠 Approach / Methodology / Strategy
 
-- Python 3.10+
-- Docker and Docker Compose
-- Optional Nvidia GPU with CUDA support
+The system provides a reproducible quantization workflow composed of three main stages.
+
+### Quantization
+
+* Load base model from HuggingFace or local checkpoint
+* Optionally load LoRA adapters
+* Run calibration using a representative dataset
+* Execute backend-specific quantization
+
+Supported backends:
+
+| Backend      | Description                       |
+| ------------ | --------------------------------- |
+| GGUF         | llama.cpp optimized CPU inference |
+| AWQ          | Activation-aware quantization     |
+| GPTQ         | Post-training weight quantization |
+| bitsandbytes | 4-bit / 8-bit quantization        |
+| ONNX         | Graph-optimized inference         |
+
+### Export
+
+* Persist quantized artifacts
+* Store metadata and configuration snapshot
+* Export compatible runtime formats
+
+### Benchmark
+
+* Deterministic decoding
+* Latency and throughput measurement
+* CPU vs. GPU comparison
 
 ---
 
-## Windows & WSL2 Prerequisites
+## 🏗 Pipeline Architecture
 
-### PowerShell
-```powershell
+```text
+Base Model (HF / local)
+        ↓
+Calibration Dataset
+        ↓
+Quantization Backend
+(GGUF / AWQ / GPTQ / BNB / ONNX)
+        ↓
+Quantized Model
+        ↓
+Artifact Export
+        ↓
+Benchmarking
+        ↓
+Performance Reports
+```
+
+---
+
+## 📊 Exploratory Data Analysis
+
+The project includes benchmarking diagnostics such as:
+
+* inference latency
+* tokens per second
+* memory consumption
+* backend comparison metrics
+
+Benchmark outputs are stored in:
+
+```
+artifacts/benchmarks/
+```
+
+---
+
+## 🔧 Setup & Installation
+
+In this section we explain the minimum OS verification, python usage and docker setup.
+
+### 1. Requirements
+
+* Python 3.10+
+* Docker & Docker Compose
+* Optional Nvidia GPU
+
+---
+
+### 2. OS prerequisites
+
+Verify that required packages are installed.
+
+#### Windows / WSL2 (recommended)
+
+```bash
+# PowerShell
 wsl --status
 wsl --install
 wsl --list --online
 wsl --install -d Ubuntu
 wsl -d Ubuntu
+
 docker --version
 docker compose version
 ```
 
-### Ubuntu
+#### Ubuntu
+
 ```bash
 sudo apt update
-sudo apt install -y git
-git --version
-```
-
-### Python
-```bash
-python3 --version
-sudo apt install -y python3-pip python3-venv
+sudo apt install -y python3 python3-venv python3-pip build-essential curl git
+python --version
 ```
 
 ---
 
-## Setup
+### 3. Python environment
 
-### Manual installation
 ```bash
-
 ## Create the virtual environment
 python -m venv .lq_env
 
@@ -150,116 +246,66 @@ python -m pip install --no-build-isolation --no-deps "autoawq==0.2.4"
 
 ---
 
-## ✅ Full System Verification (End-to-End)
-
-Run the following commands in order:
+### 4. Docker setup
 
 ```bash
-# Sanity check: Python environment and core dependencies
+docker compose -f docker/docker-compose.yml build
+docker compose -f docker/docker-compose.yml up
+```
+
+---
+
+## ▶️ Usage & End-to-End Testing
+
+```bash
+## Verify environment dependencies
 python -c "import numpy; print('numpy', numpy.__version__)"
 python -c "import torch; print('torch', torch.__version__)"
 python -c "import transformers; print('transformers', transformers.__version__)"
 python -c "import tokenizers; print('tokenizers', tokenizers.__version__)"
+
+## Verify optional quantization libraries
 python -c "import bitsandbytes as bnb; print('bnb', bnb.__version__)"
 python -c "import awq; print('awq import OK')"
 python -c "import auto_gptq; print('auto_gptq OK')"
+
+## Check ONNX runtime
 python -c "import onnx; print('onnx', onnx.__version__)"
 python -c "import onnxruntime as ort; print('onnxruntime', ort.__version__)"
 
-# Check project structure
+## Inspect project structure
 ls src
 ls artifacts
 
-# Print resolved pipeline configuration
+## Print pipeline configuration
 python main.py --print-config
 
-# Run quantization pipeline
+## Run quantization pipeline
 python main.py
 
-# Inspect outputs (if export enabled)
+## Inspect exported artifacts
 ls artifacts/exports
 
-# Run unit tests
+## Run tests
 pytest -q
-
 ```
 
 ---
 
-## Docker Usage
+## 📛 Common Errors & Troubleshooting
 
-### Build and start the pipeline
-```bash
-docker compose build
-docker compose up
-```
-
----
-
-## Application Workflow
-
-1. **Quantization**
-   - Load base model from Hugging Face or local path
-   - Optional LoRA adapter validation
-   - Load calibration dataset (AWQ / GPTQ / ONNX)
-   - Run backend-specific quantization
-
-2. **Export**
-   - Persist quantized artifacts (GGUF / INT4 / ONNX)
-   - Save metadata and configuration snapshot
-
-3. **Benchmark**
-   - Deterministic decoding
-   - Latency and throughput measurement
-   - CPU / GPU comparison
+| Error                       | Cause                                   | Solution                            |
+| --------------------------- | --------------------------------------- | ----------------------------------- |
+| Torch installation mismatch | Incorrect CPU/GPU wheel                 | Install correct torch build         |
+| AWQ build failure           | Dependency conflicts                    | Install with `--no-build-isolation` |
+| NumPy compatibility issue   | NumPy ≥2 incompatible with bitsandbytes | Install `numpy<2`                   |
+| ONNX runtime error          | Missing runtime backend                 | Install `onnxruntime`               |
 
 ---
 
-## CLI Usage
+## 👤 Author
 
-### Quantize model
-```bash
-PIPELINE_MODE=quantize python main.py
-```
+**Georges Nassopoulos**
+[georges.nassopoulos@gmail.com](mailto:georges.nassopoulos@gmail.com)
 
-### Export quantized artifacts
-```bash
-PIPELINE_MODE=export python main.py
-```
-
-### Benchmark model
-```bash
-PIPELINE_MODE=benchmark python main.py
-```
-
-### Run full pipeline
-```bash
-PIPELINE_MODE=full python main.py
-```
-
-Or via interactive menu:
-```bash
-bash menu_pipeline.sh
-```
-
----
-
-## Tests
-
-```bash
-pytest
-```
-
-Tests cover:
-- Environment parsing utilities
-- Configuration validation
-- Error helpers
-
----
-
-## Author
-
-Georges Nassopoulos  
-Email: georges.nassopoulos@gmail.com  
-Status: Technical / Portfolio project
-
+**Status:** Local AI / Quantization Engineering Project
