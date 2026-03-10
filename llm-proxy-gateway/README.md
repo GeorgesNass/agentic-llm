@@ -1,121 +1,40 @@
-# 🚀 LLM Proxy Gateway – Multi‑Provider LLM Orchestration Platform
+# 🚀 LLM Proxy Gateway – Multi-Provider LLM Orchestration Platform
 
-## 1. Project Overview
-
-This project implements a complete **LLM proxy gateway** designed to orchestrate multiple Large Language Model providers (OpenAI, Gemini, xAI, etc.) through a unified interface.
-
-The objective is to:
-
-- Provide a unified chat completion interface
-- Provide a unified embeddings interface
-- Simulate cost before execution (chat or embeddings)
-- Evaluate model outputs with text metrics
-- Offer both CLI and FastAPI usage
-- Ensure reproducibility, logging, and clean architecture
-
-The gateway abstracts provider differences and exposes a stable, extensible API layer.
+The gateway provides a **unified interface to orchestrate multiple LLM providers**, enabling cost simulation, model evaluation, and provider-agnostic execution.
 
 ---
 
-## 2. Problem Statement
+## 🎯 Project Overview
 
-Modern LLM systems face several challenges:
+Main capabilities:
 
-- Multiple providers with different APIs
-- Pricing differences per model and token type
-- Token estimation inconsistencies
-- Lack of cost visibility before execution
-- No standardized evaluation layer
-- Hardcoded provider logic in applications
+* Unified **chat completion interface**
+* Unified **embeddings interface**
+* **Pre-execution cost simulation**
+* **Text evaluation metrics** for model outputs
+* **Multi-provider routing** (OpenAI, Gemini, xAI)
+* **CLI + FastAPI API interface**
+* Clean modular architecture and reproducible execution
 
-This project addresses these constraints through:
-
-- Provider dispatch abstraction
-- JSON-based model & pricing catalogs
-- Token estimation helpers (approximate + extensible)
-- Pre-execution cost simulation
-- Text metric evaluation layer
-- Modular architecture (core / llm / utils)
-- CLI + FastAPI interface
+The gateway abstracts provider differences and exposes a **stable orchestration layer for LLM applications**.
 
 ---
 
-## 3. LLM Strategy
+## ⚙️ Tech Stack
 
-### Core Functional Dimensions
+Core technologies used in the project:
 
-| Dimension | Description | Example |
-|------------|------------|----------|
-| provider | LLM provider backend | openai |
-| model | Model name | gpt-4o-mini |
-| input_tokens | Estimated prompt tokens | 1250 |
-| output_tokens | Estimated completion tokens | 800 |
-| total_cost_usd | Simulated or real cost | 0.0234 |
-| evaluation_metric | Text similarity metric | f1_token |
-| execution_mode | chat / embeddings | chat |
-
-### Key Operational Objectives
-
-| Objective | Why It Matters | Example Insight |
-|------------|----------------|----------------|
-| Cost transparency | Prevent unexpected billing | Compare providers before execution |
-| Multi-provider fallback | Avoid vendor lock-in | Switch OpenAI → Gemini |
-| Embedding consistency | Unified vector generation | Same interface for all providers |
-| Evaluation capability | Quantify model quality | F1 = 0.83 |
-| Modular extensibility | Add providers safely | Future Claude / Mistral support |
+* Python
+* FastAPI
+* Docker & Docker Compose
+* Pydantic
+* REST APIs (OpenAI / Gemini / xAI)
+* Token estimation utilities
+* JSON provider & pricing catalogs
 
 ---
 
-## 4. Pipeline Architecture
-
-```
-	 User CLI / HTTP Request
-            ↓
-        Validation Layer (Pydantic)
-            ↓
-        Pipeline Orchestrator
-            ↓
-   Cost Simulation (optional)
-            ↓
-  Provider Dispatch (chat / embeddings)
-            ↓
-   Optional Evaluation Metrics
-            ↓
-      Structured JSON Response
-```
-
----
-
-## 5. Analytics & Evaluation Layer
-
-The project provides built-in text evaluation metrics.
-
-### Text Metrics Techniques
-
-| Technique | Purpose | Example |
-|------------|---------|----------|
-| Exact Match | Strict equality | prediction == reference |
-| Contains | Substring presence | "Paris" in response |
-| F1 Token | Token-level precision/recall | F1 = 0.84 |
-| Jaccard | Set similarity | 0.72 |
-| Cosine Similarity | Vector similarity | 0.91 |
-| ROUGE (optional) | Summarization quality | ROUGE-L |
-| BLEU (optional) | N-gram overlap | BLEU-4 |
-| BERTScore (optional) | Semantic similarity | 0.89 |
-
-### Cost Simulation Logic
-
-| Step | Purpose |
-|------|----------|
-| Approx token estimation | Fast, offline calculation |
-| Folder scan (.txt) | Batch estimation |
-| Chunking | Embedding window logic |
-| Pricing lookup | JSON-based provider pricing |
-| Cost math | $/1K tokens calculation |
-
----
-
-## 6. Project Structure
+## 📂 Project Structure
 
 ```
 llm-proxy-gateway/
@@ -182,25 +101,148 @@ llm-proxy-gateway/
 
 ---
 
-## 7. Prerequisites
+## ❓ Problem Statement
 
-- Python 3.10+
-- Docker & Docker Compose
-- API keys for desired LLM providers
+Modern LLM systems introduce several operational challenges:
 
-### Ubuntu Example
+* Multiple providers with **different APIs**
+* Pricing differences across **models and token types**
+* Token estimation inconsistencies
+* Limited **cost visibility before execution**
+* Lack of standardized evaluation tools
+* Hardcoded provider logic in applications
 
-```bash
-sudo apt update
-sudo apt install python3 python3-pip
-python3 --version
+This project addresses these issues through:
+
+* Provider-agnostic dispatch abstraction
+* JSON-based model and pricing catalogs
+* Token estimation helpers
+* Pre-execution cost simulation
+* Built-in evaluation metrics
+* Modular architecture supporting easy extension
+
+---
+
+## 🧠 Approach / Methodology / Strategy
+
+The gateway provides a **provider-agnostic orchestration layer** combining cost estimation, provider routing, and output evaluation.
+
+Core principles:
+
+* **Multi-provider abstraction** for chat and embeddings
+* **Pre-execution cost simulation** using token estimation
+* **Evaluation-driven analysis** of LLM outputs
+* **Provider-agnostic interface** for future model integration
+
+### LLM Orchestration Ecosystem
+
+| Component            | Role                                     |
+| -------------------- | ---------------------------------------- |
+| Provider Dispatch    | Route requests to OpenAI, Gemini, xAI    |
+| Cost Simulation      | Estimate cost before execution           |
+| Token Estimation     | Approximate token counts for prompts     |
+| Pricing Catalog      | JSON mapping of models and token pricing |
+| Evaluation Metrics   | Text similarity and quality metrics      |
+| Embeddings Interface | Unified embedding generation             |
+
+### Evaluation Metrics
+
+| Metric                   | Purpose                      |
+| ------------------------ | ---------------------------- |
+| Exact Match              | Strict equality comparison   |
+| Contains                 | Substring presence           |
+| F1 Token                 | Token precision/recall       |
+| Jaccard                  | Set similarity               |
+| Cosine Similarity        | Vector similarity            |
+| ROUGE / BLEU / BERTScore | Optional advanced evaluation |
+
+### Cost Simulation Logic
+
+| Step | Purpose |
+|------|----------|
+| Approx token estimation | Fast, offline calculation |
+| Folder scan (.txt) | Batch estimation |
+| Chunking | Embedding window logic |
+| Pricing lookup | JSON-based provider pricing |
+| Cost math | $/1K tokens calculation |
+
+
+---
+
+## 🏗 Pipeline Architecture
+
+```
+	 User CLI / HTTP Request
+            ↓
+        Validation Layer (Pydantic)
+            ↓
+        Pipeline Orchestrator
+            ↓
+   Cost Simulation (optional)
+            ↓
+  Provider Dispatch (chat / embeddings)
+            ↓
+   Optional Evaluation Metrics
+            ↓
+      Structured JSON Response
 ```
 
 ---
 
-## 8. Setup
+## 📊 Exploratory Data Analysis
 
-### Python
+Although this project does not process structured datasets, it includes **analysis utilities for model outputs and cost estimation**.
+
+Examples:
+
+* cost comparison between providers
+* evaluation metrics for model responses
+* token estimation diagnostics
+
+Generated outputs can be exported in:
+
+```
+artifacts/exports/
+```
+
+---
+
+## 🔧 Setup & Installation
+In this section we explain the minimum OS verification, python usage and docker setup.
+
+### 1. Requirements
+
+* Python 3.10+
+* Docker & Docker Compose (optional)
+* API keys for desired LLM providers
+
+### 2. OS prerequists
+
+Verify that you have the necessairy packages installed.
+
+#### Windows / WSL2 (recommended)
+
+```bash
+# PowerShell
+wsl --status
+wsl --install
+wsl --list --online
+wsl --install -d Ubuntu
+wsl -d Ubuntu
+
+docker --version
+docker compose version
+```
+
+#### Ubuntu
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip build-essential curl git
+python3 --version
+```
+
+### 3. Python environment
 
 ```bash
 python -m venv .llm_env
@@ -209,16 +251,16 @@ python -m pip install --upgrade pip setuptools wheel		## for windows : .llm_env\
 pip install -r requirements.txt
 ```
 
-### Docker
+### 4. Docker setup
 
 ```bash
-docker compose build
-docker compose up
+docker compose -f docker/docker-compose.yml build
+docker compose -f docker/docker-compose.yml up
 ```
 
 ---
 
-## 9. Full System Verification
+## ▶️ Usage & End-to-End Testing
 
 ```bash
 ## Run API
@@ -242,8 +284,20 @@ pytest -q
 
 ---
 
-## 10. Author
+## 📛 Common Errors & Troubleshooting
 
-**Georges Nassopoulos**  
-Email: georges.nassopoulos@gmail.com
+| Error                      | Cause                          | Solution                   |
+| -------------------------- | ------------------------------ | -------------------------- |
+| API authentication failure | Missing provider API key       | Check `.env` configuration |
+| Token estimation mismatch  | Approximation method used      | Adjust estimation logic    |
+| Provider request failure   | Invalid provider configuration | Verify provider settings   |
+| Docker container failure   | Misconfigured environment      | Rebuild container          |
 
+---
+
+## 👤 Author
+
+**Georges Nassopoulos**
+[georges.nassopoulos@gmail.com](mailto:georges.nassopoulos@gmail.com)
+
+**Status:** AI Engineering / LLM Infrastructure Project
