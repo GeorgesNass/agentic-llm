@@ -9,7 +9,6 @@ __desc__ = "Centralized custom exceptions and structured error handling helpers 
 
 from __future__ import annotations
 
-import json
 import traceback
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Type
@@ -19,7 +18,7 @@ from fastapi.responses import JSONResponse
 
 from src.utils.logging_utils import get_logger
 from src.utils.request_utils import _get_request_id
-from src.utils.safe_utils import _safe_str, _safe_json
+from src.utils.safe_utils import _safe_json, _safe_str
 
 ## ============================================================
 ## LOGGER
@@ -77,6 +76,11 @@ class AutonomousAIPlatformError(Exception):
     """
         Base exception for autonomous-ai-platform
 
+        High-level workflow:
+            1) Normalize platform-specific failures
+            2) Preserve structured diagnostic context
+            3) Support clean HTTP/API error rendering
+
         Args:
             message: Human-readable error message
             error_code: Normalized error code
@@ -97,6 +101,7 @@ class AutonomousAIPlatformError(Exception):
         http_status: int = 400,
         is_retryable: bool = False,
     ) -> None:
+        ## Store normalized error metadata
         self.message = message
         self.error_code = error_code
         self.details = details or {}
@@ -104,6 +109,7 @@ class AutonomousAIPlatformError(Exception):
         self.cause = cause
         self.http_status = http_status
         self.is_retryable = is_retryable
+
         super().__init__(message)
 
     def to_payload(self) -> ErrorPayload:
@@ -114,7 +120,10 @@ class AutonomousAIPlatformError(Exception):
                 ErrorPayload
         """
 
+        ## Resolve original cause type when available
         cause_type = self.cause.__class__.__name__ if self.cause else ""
+
+        ## Return immutable structured payload
         return ErrorPayload(
             error_code=self.error_code,
             message=self.message,
@@ -127,58 +136,92 @@ class AutonomousAIPlatformError(Exception):
 ## DOMAIN ERRORS
 ## ============================================================
 class ConfigurationError(AutonomousAIPlatformError):
-    """Configuration and environment errors"""
+    """
+        Configuration and environment errors
+    """
 
 class ValidationError(AutonomousAIPlatformError):
-    """Input validation errors (beyond Pydantic)"""
+    """
+        Input validation errors beyond Pydantic validation
+    """
 
 class UnauthorizedError(AutonomousAIPlatformError):
-    """Auth errors"""
+    """
+        Authentication errors
+    """
 
 class ForbiddenError(AutonomousAIPlatformError):
-    """Permission errors"""
+    """
+        Permission errors
+    """
 
 class NotFoundError(AutonomousAIPlatformError):
-    """Missing resource errors"""
+    """
+        Missing resource errors
+    """
 
 class TimeoutError(AutonomousAIPlatformError):
-    """Timeout errors"""
+    """
+        Timeout errors
+    """
 
 class RateLimitError(AutonomousAIPlatformError):
-    """Rate limiting errors"""
+    """
+        Rate limiting errors
+    """
 
 class DependencyError(AutonomousAIPlatformError):
-    """External dependency errors (network, APIs, services)"""
+    """
+        External dependency errors for network APIs and services
+    """
 
 class StorageError(AutonomousAIPlatformError):
-    """Filesystem / object storage errors"""
+    """
+        Filesystem and object storage errors
+    """
 
 class LlmProviderError(AutonomousAIPlatformError):
-    """Provider client errors (OpenAI/xAI/local runtime)"""
+    """
+        Provider client errors for OpenAI xAI or local runtime
+    """
 
 class ToolExecutionError(AutonomousAIPlatformError):
-    """Tool execution failures"""
+    """
+        Tool execution failures
+    """
 
 class RetrievalError(AutonomousAIPlatformError):
-    """Vector store / retrieval errors"""
+    """
+        Vector store and retrieval errors
+    """
 
 class SqlExecutionError(AutonomousAIPlatformError):
-    """SQLite execution errors"""
+    """
+        SQLite execution errors
+    """
 
 class OrchestrationError(AutonomousAIPlatformError):
-    """Agentic orchestration errors"""
+    """
+        Agentic orchestration errors
+    """
 
 class EvaluationError(AutonomousAIPlatformError):
-    """Evaluation pipeline errors"""
+    """
+        Evaluation pipeline errors
+    """
 
 class MonitoringError(AutonomousAIPlatformError):
-    """Prometheus/Grafana exporter errors"""
+    """
+        Prometheus and Grafana exporter errors
+    """
 
 class PlatformError(AutonomousAIPlatformError):
-    """ Generic platform-level error. Used when an error does not belong to a specific domain (configuration, retrieval, evaluation, etc.)."""
-    
+    """
+        Generic platform-level error for uncategorized domain failures
+    """
+
 ## ============================================================
-## RAISE HELPERS (NO RAW ERRORS)
+## RAISE HELPERS
 ## ============================================================
 def raise_platform_error(
     exc_type: Type[AutonomousAIPlatformError],
@@ -194,6 +237,11 @@ def raise_platform_error(
     """
         Raise a structured platform exception
 
+        High-level workflow:
+            1) Keep a single normalized constructor path
+            2) Preserve error code and origin metadata
+            3) Avoid raising raw library exceptions
+
         Args:
             exc_type: Exception class to raise
             message: Human-readable message
@@ -204,13 +252,11 @@ def raise_platform_error(
             http_status: HTTP status code hint
             is_retryable: Retryability hint
 
-        Returns:
-            None
-
         Raises:
-            AutonomousAIPlatformError
+            AutonomousAIPlatformError: Always
     """
 
+    ## Raise the normalized platform exception
     raise exc_type(
         message=message,
         error_code=error_code,
@@ -235,6 +281,11 @@ def wrap_exception(
     """
         Wrap any exception into a structured platform exception
 
+        High-level workflow:
+            1) Preserve original exception metadata
+            2) Merge diagnostic details safely
+            3) Return a normalized platform exception
+
         Args:
             exc: Original exception
             exc_type: Target platform exception class
@@ -249,10 +300,14 @@ def wrap_exception(
             Wrapped AutonomousAIPlatformError
     """
 
-    merged_details = details or {}
+    ## Initialize merged diagnostic payload
+    merged_details = details.copy() if details else {}
+
+    ## Attach original exception metadata
     merged_details["cause_message"] = _safe_str(exc)
     merged_details["cause_type"] = exc.__class__.__name__
 
+    ## Return normalized wrapped exception
     return exc_type(
         message=message,
         error_code=error_code,
@@ -275,20 +330,28 @@ def log_structured_error(
     """
         Log a structured platform error
 
+        High-level workflow:
+            1) Resolve request identifier
+            2) Serialize structured error payload
+            3) Log a stable single-line error
+            4) Optionally log traceback at debug level
+
         Args:
             exc: Platform exception
             request: Optional request object
             include_traceback: Whether to include traceback at DEBUG level
-
-        Returns:
-            None
     """
 
+    ## Resolve request identifier
     req_id = _get_request_id(request)
 
+    ## Convert exception into structured payload
     payload = exc.to_payload()
+
+    ## Emit normalized single-line error log
     logger.error(
-        "PlatformError | request_id=%s | code=%s | origin=%s | message=%s | details=%s",
+        "PlatformError | request_id=%s | code=%s | origin=%s | "
+        "message=%s | details=%s",
         req_id,
         payload.error_code,
         payload.origin,
@@ -296,13 +359,19 @@ def log_structured_error(
         _safe_json(payload.details),
     )
 
-    ## Log traceback only in debug, never in error line
+    ## Emit traceback only in debug mode when cause exists
     if include_traceback and exc.cause is not None:
         logger.debug(
             "PlatformError traceback | request_id=%s | cause_type=%s\n%s",
             req_id,
             exc.cause.__class__.__name__,
-            "".join(traceback.format_exception(type(exc.cause), exc.cause, exc.cause.__traceback__)),
+            "".join(
+                traceback.format_exception(
+                    type(exc.cause),
+                    exc.cause,
+                    exc.cause.__traceback__,
+                )
+            ),
         )
 
 def log_unhandled_exception(
@@ -313,16 +382,20 @@ def log_unhandled_exception(
     """
         Log an unhandled exception in a structured way
 
+        High-level workflow:
+            1) Resolve request identifier
+            2) Log exception type and safe message
+            3) Emit full traceback only at debug level
+
         Args:
             exc: Unexpected exception
             request: Optional request
-
-        Returns:
-            None
     """
 
+    ## Resolve request identifier
     req_id = _get_request_id(request)
 
+    ## Emit normalized single-line unhandled error log
     logger.error(
         "UnhandledException | request_id=%s | type=%s | message=%s",
         req_id,
@@ -330,7 +403,7 @@ def log_unhandled_exception(
         _safe_str(exc),
     )
 
-    ## Full traceback only in debug
+    ## Emit full traceback only in debug logs
     logger.debug(
         "UnhandledException traceback | request_id=%s\n%s",
         req_id,
@@ -347,6 +420,11 @@ async def platform_exception_handler(
     """
         Handle AutonomousAIPlatformError exceptions in FastAPI
 
+        High-level workflow:
+            1) Log the structured platform error
+            2) Convert exception to stable API payload
+            3) Return normalized JSON response
+
         Args:
             request: FastAPI request object
             exc: Platform exception
@@ -355,9 +433,13 @@ async def platform_exception_handler(
             JSONResponse with standardized error payload
     """
 
+    ## Log the structured platform error
     log_structured_error(exc, request=request, include_traceback=False)
 
+    ## Convert exception to payload
     payload = exc.to_payload()
+
+    ## Return normalized API response
     return JSONResponse(
         status_code=exc.http_status,
         content={
@@ -376,6 +458,11 @@ async def generic_exception_handler(
     """
         Handle unexpected exceptions in FastAPI
 
+        High-level workflow:
+            1) Log unexpected exception
+            2) Return generic internal error response
+            3) Preserve request identifier for traceability
+
         Args:
             request: FastAPI request object
             exc: Unexpected exception
@@ -384,9 +471,10 @@ async def generic_exception_handler(
             JSONResponse with generic error payload
     """
 
-    ## Convert to structured internal error for consistent API responses
+    ## Log the unexpected exception in a structured way
     log_unhandled_exception(exc, request=request)
 
+    ## Return generic internal API response
     return JSONResponse(
         status_code=500,
         content={
@@ -399,7 +487,7 @@ async def generic_exception_handler(
     )
 
 ## ============================================================
-## COMMON EXCEPTION MAPPINGS (OPTIONAL)
+## COMMON EXCEPTION MAPPINGS
 ## ============================================================
 def map_to_platform_error(
     exc: Exception,
@@ -410,6 +498,11 @@ def map_to_platform_error(
     """
         Map common python exceptions to platform errors
 
+        High-level workflow:
+            1) Match a known python exception type
+            2) Convert it to a normalized platform exception
+            3) Fallback to a generic internal platform error
+
         Args:
             exc: Original exception
             origin: Component where error happened
@@ -419,15 +512,18 @@ def map_to_platform_error(
             AutonomousAIPlatformError
     """
 
-    ## NOTE
     ## Keep mapping conservative and explicit
-    mapping: Tuple[Tuple[Type[Exception], Type[AutonomousAIPlatformError], str, int], ...] = (
+    mapping: Tuple[
+        Tuple[Type[Exception], Type[AutonomousAIPlatformError], str, int],
+        ...,
+    ] = (
         (FileNotFoundError, NotFoundError, ERROR_CODE_NOT_FOUND, 404),
         (PermissionError, ForbiddenError, ERROR_CODE_FORBIDDEN, 403),
         (ValueError, ValidationError, ERROR_CODE_VALIDATION, 400),
         (TimeoutError, TimeoutError, ERROR_CODE_TIMEOUT, 408),
     )
 
+    ## Try to map the original exception to a platform error
     for exc_cls, target_cls, code, status in mapping:
         if isinstance(exc, exc_cls):
             return wrap_exception(
@@ -437,9 +533,13 @@ def map_to_platform_error(
                 error_code=code,
                 origin=origin,
                 http_status=status,
-                is_retryable=code in {ERROR_CODE_TIMEOUT, ERROR_CODE_RATE_LIMIT},
+                is_retryable=code in {
+                    ERROR_CODE_TIMEOUT,
+                    ERROR_CODE_RATE_LIMIT,
+                },
             )
 
+    ## Fallback to generic internal platform error
     return wrap_exception(
         exc,
         exc_type=AutonomousAIPlatformError,
