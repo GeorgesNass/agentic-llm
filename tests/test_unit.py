@@ -271,6 +271,26 @@ def test_text_utils_extract_first_json_object() -> None:
     assert _extract_first_json_object("noise {\"ok\": true} tail").get("ok") is True
     assert _extract_first_json_object("no json") == {}
 
+def test_text_utils_invalid_json():
+    """
+        Validate JSON extraction on invalid input
+    """
+
+    out = _extract_first_json_object("{invalid json")
+    
+    assert isinstance(out, dict)
+
+def test_embeddings_empty_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+        Validate embeddings handles empty input
+    """
+
+    _install_fake_sentence_transformers(monkeypatch)
+
+    out = embed_texts([], prefer_local=True, use_gpu=False)
+    
+    assert out == []
+    
 ## ============================================================
 ## SQLITE MANAGER + TEXT-TO-SQL
 ## ============================================================
