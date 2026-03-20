@@ -11,30 +11,47 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
+from typing import Optional
 
 from src.config.settings import build_pipeline_config
 from src.core.errors import LocalQuantizationError
 from src.pipeline import run_pipeline
 from src.utils.logging_utils import get_logger
 
-## Initialize module-level logger
+## ============================================================
+## CONSTANTS
+## ============================================================
+APP_VERSION = "1.0.0"
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_PLATFORM_ERROR = 2
+
+## ============================================================
+## LOGGER
+## ============================================================
 LOGGER = get_logger(__name__)
 
-
+## ============================================================
+## ARG PARSER
+## ============================================================
 def _build_parser() -> argparse.ArgumentParser:
     """
-        Build the CLI argument parser
-
-        Args:
-            None
+        Build CLI argument parser
 
         Returns:
-            A configured argparse parser
+            Configured ArgumentParser
     """
+
     parser = argparse.ArgumentParser(
         description="local-quantization: quantize/export/benchmark LLMs locally",
+        add_help=True,
     )
+
+    parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--validate-config", action="store_true")
 
     parser.add_argument(
         "--env-file",
@@ -51,6 +68,34 @@ def _build_parser() -> argparse.ArgumentParser:
 
     return parser
 
+## ============================================================
+## HELPERS
+## ============================================================
+def _build_summary(
+    action: str,
+    success: bool,
+    start: float,
+    details: Optional[dict] = None,
+) -> dict:
+    """
+        Build standardized execution summary
+
+        Args:
+            action: Executed action name
+            success: Execution status
+            start: Monotonic start timestamp
+            details: Optional structured details
+
+        Returns:
+            Standardized summary dictionary
+    """
+
+    return {
+        "action": action,
+        "success": success,
+        "duration_seconds": round(time.monotonic() - start, 3),
+        "details": details or {},
+    }
 
 def _load_dotenv_if_needed(env_file: str) -> None:
     """
@@ -62,10 +107,12 @@ def _load_dotenv_if_needed(env_file: str) -> None:
         Returns:
             None
     """
+
     if env_file.strip() == "":
         return
 
     env_path = Path(env_file).expanduser().resolve()
+
     if not env_path.exists():
         LOGGER.warning("Provided .env file does not exist: %s", env_path)
         return
@@ -79,18 +126,16 @@ def _load_dotenv_if_needed(env_file: str) -> None:
     load_dotenv(dotenv_path=str(env_path), override=False)
     LOGGER.info("Loaded .env file: %s", env_path)
 
-
 def _print_safe_config() -> int:
     """
-        Print a safe configuration view without dumping sensitive values
-
-        Args:
-            None
+        Print safe configuration without sensitive values
 
         Returns:
             Exit code
     """
+
     config = build_pipeline_config()
+
     LOGGER.info("PIPELINE_MODE=%s", config.mode)
     LOGGER.info("MODEL_NAME_OR_PATH=%s", config.model.model_name_or_path)
     LOGGER.info("MODEL_REVISION=%s", config.model.revision or "")
@@ -100,47 +145,76 @@ def _print_safe_config() -> int:
     LOGGER.info("QUANT_GROUP_SIZE=%s", config.quantization.group_size or "")
     LOGGER.info(
         "CALIBRATION_DATASET=%s",
-        str(config.quantization.calibration_dataset)
-        if config.quantization.calibration_dataset
-        else "",
+        str(config.quantization.calibration_dataset) if config.quantization.calibration_dataset else "",
     )
     LOGGER.info("EXPORT_OUTPUT_DIR=%s", str(config.export.output_dir) if config.export else "")
     LOGGER.info("BENCHMARK_PROMPTS=%s", str(config.benchmark.prompts_path) if config.benchmark else "")
-    return 0
 
+    return EXIT_SUCCESS
 
+## ============================================================
+## MAIN
+## ============================================================
 def main() -> int:
     """
-        Run the CLI entrypoint
+        Main CLI entry point
 
-        Args:
-            None
+        Workflow:
+            - load optional .env
+            - optionally print config
+            - run quantization pipeline
 
         Returns:
-            Exit code (0 success, non-zero failure)
+            Exit code
     """
+
+    start_time = time.monotonic()
     parser = _build_parser()
     args = parser.parse_args()
 
-    _load_dotenv_if_needed(args.env_file)
-
     try:
+        if args.validate_config:
+            config = build_pipeline_config()
+            LOGGER.info("Config validation OK | mode=%s", config.mode)
+            LOGGER.info("Summary | %s", _build_summary("validate-config", True, start_time))
+            return EXIT_SUCCESS
+
+        if args.dry_run:
+            LOGGER.info("Dry-run | env_file=%s print_config=%s", args.env_file, bool(args.print_config))
+            LOGGER.info("Summary | %s", _build_summary("dry-run", True, start_time))
+            return EXIT_SUCCESS
+
+        _load_dotenv_if_needed(args.env_file)
+
         if args.print_config:
-            return _print_safe_config()
+            code = _print_safe_config()
+            LOGGER.info("Summary | %s", _build_summary("print-config", True, start_time))
+            return code
 
         config = build_pipeline_config()
         run_pipeline(config)
+
         LOGGER.info("Pipeline completed successfully")
-        return 0
+        LOGGER.info("Summary | %s", _build_summary("run", True, start_time))
+        return EXIT_SUCCESS
+
+    except KeyboardInterrupt:
+        LOGGER.warning("Interrupted")
+        LOGGER.warning("Summary | %s", _build_summary("interrupt", False, start_time))
+        return EXIT_FAILURE
 
     except LocalQuantizationError as exc:
         LOGGER.error("Pipeline failed: %s", str(exc))
-        return 2
+        LOGGER.error("Summary | %s", _build_summary("known-error", False, start_time))
+        return EXIT_PLATFORM_ERROR
 
     except Exception as exc:
         LOGGER.exception("Unexpected error: %s", str(exc))
-        return 3
+        LOGGER.error("Summary | %s", _build_summary("unhandled-exception", False, start_time))
+        return EXIT_FAILURE
 
-
+## ============================================================
+## ENTRYPOINT
+## ============================================================
 if __name__ == "__main__":
     sys.exit(main())
