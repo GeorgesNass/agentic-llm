@@ -54,7 +54,7 @@ rag-drive-gcp/
 ├── logs/                           ## Application logs
 │
 ├── tests/
-│   └── test_core.py                ## Minimal unit tests
+│   └── test_unit.py                ## Minimal unit tests
 │
 └── src/
     ├── core/
