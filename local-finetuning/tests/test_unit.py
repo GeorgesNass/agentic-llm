@@ -324,3 +324,150 @@ def test_profile_switch_cpu_gpu() -> None:
             os.environ.pop("GPU_USE_GPU", None)
         else:
             os.environ["GPU_USE_GPU"] = original_gpu_use_gpu
+
+def test_exact_match_empty_lists() -> None:
+    """
+        Test exact match behavior on empty inputs
+
+        Returns:
+            None
+    """
+
+    assert exact_match([], []) == 0.0
+	
+def test_label_coverage_empty() -> None:
+    """
+        Test label coverage on empty predictions
+
+        Returns:
+            None
+    """
+
+    coverage = label_coverage([])
+
+    assert coverage == {}
+	
+def test_missing_labels_none_missing() -> None:
+    """
+        Test missing_labels when all labels are present
+
+        Returns:
+            None
+    """
+
+    all_labels = ["a", "b"]
+    y_pred = ["a", "b", "a"]
+
+    missing = missing_labels(all_labels, y_pred)
+
+    assert missing == []
+
+def test_prepare_dataset_records_have_expected_keys(
+    tmp_dirs: Dict[str, Path],
+) -> None:
+    """
+        Ensure prepared JSONL records contain expected keys
+
+        Args:
+            tmp_dirs: Temporary directories fixture containing raw, interim,
+                and processed paths
+
+        Returns:
+            None
+    """
+
+    raw_dir = tmp_dirs["raw_dir"]
+    interim_dir = tmp_dirs["interim_dir"]
+    processed_dir = tmp_dirs["processed_dir"]
+
+    raw_csv = raw_dir / "sample.csv"
+    rows = [
+        {"text": "j'ai mal a la tete", "label": "cephalees"},
+        {"text": "fievre", "label": "fievre"},
+        {"text": "toux", "label": "toux"},
+    ]
+    _write_raw_csv(raw_csv, rows)
+
+    run_prepare_dataset(
+        raw_dir=raw_dir,
+        interim_dir=interim_dir,
+        processed_dir=processed_dir,
+        train_file="train.jsonl",
+        val_file="val.jsonl",
+        test_file="test.jsonl",
+        label_list_file=None,
+        split_seed=42,
+        train_ratio=0.8,
+        val_ratio=0.1,
+        test_ratio=0.1,
+        logger=_DummyLogger(),
+    )
+
+    train_records = read_jsonl(processed_dir / "train.jsonl")
+
+    if train_records:
+        first = train_records[0]
+        assert "input" in first
+        assert "output" in first
+
+def test_prepare_dataset_with_strict_label_list_filters_all_invalid(
+    tmp_dirs: Dict[str, Path],
+) -> None:
+    """
+        Ensure strict label list filters out all invalid labels
+
+        Args:
+            tmp_dirs: Temporary directories fixture containing raw, interim,
+                and processed paths
+
+        Returns:
+            None
+    """
+
+    raw_dir = tmp_dirs["raw_dir"]
+    interim_dir = tmp_dirs["interim_dir"]
+    processed_dir = tmp_dirs["processed_dir"]
+
+    raw_csv = raw_dir / "sample.csv"
+    rows = [
+        {"text": "symptome x", "label": "x"},
+        {"text": "symptome y", "label": "y"},
+    ]
+    _write_raw_csv(raw_csv, rows)
+
+    labels_file = tmp_dirs["raw_dir"].parent / "labels.txt"
+    _write_label_list(labels_file, ["z"])
+
+    run_prepare_dataset(
+        raw_dir=raw_dir,
+        interim_dir=interim_dir,
+        processed_dir=processed_dir,
+        train_file="train.jsonl",
+        val_file="val.jsonl",
+        test_file="test.jsonl",
+        label_list_file=labels_file,
+        split_seed=42,
+        train_ratio=0.8,
+        val_ratio=0.1,
+        test_ratio=0.1,
+        logger=_DummyLogger(),
+    )
+
+    total = 0
+    for split_name in ["train.jsonl", "val.jsonl", "test.jsonl"]:
+        total += len(read_jsonl(processed_dir / split_name))
+
+    assert total == 0
+
+def test_profile_default_loads_settings() -> None:
+    """
+        Test default settings loading without explicit PROFILE override
+
+        Returns:
+            None
+    """
+
+    settings = load_settings(env_path=None)
+
+    assert settings is not None
+    assert hasattr(settings, "training")
