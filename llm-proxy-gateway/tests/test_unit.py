@@ -153,6 +153,7 @@ def test_iter_char_chunks_valid() -> None:
     ## Expect multiple chunks and non-empty content
     assert len(chunks) >= 2
     assert all(isinstance(c, str) and c.strip() != "" for c in chunks)
+    assert all(len(c) <= 10 for c in chunks)
 
 def test_iter_char_chunks_reject_invalid_params() -> None:
     """
@@ -291,6 +292,18 @@ def test_get_pricing_row_fallback_default(pricing_catalog_layout_a: dict[str, An
     assert row.output_per_1k == 0.02
     assert row.embedding_per_1k == 0.002
 
+def test_get_pricing_row_unknown_provider() -> None:
+    """
+        Validate unknown provider handling
+    """
+
+    with pytest.raises(Exception):
+        get_pricing_row(
+            provider="unknown",
+            model="x",
+            pricing_catalog={},
+        )
+        
 ## ============================================================
 ## COST MATH
 ## ============================================================
@@ -357,6 +370,16 @@ def test_scan_text_input_for_chat() -> None:
     assert scan.n_chars == len("hello world")
     assert scan.input_tokens >= 1
 
+def test_scan_text_input_for_chat_empty() -> None:
+    """
+        Validate scan handles empty chat input
+    """
+
+    scan = scan_text_input_for_chat("")
+
+    assert scan.n_chars == 0
+    assert scan.input_tokens == 0
+    
 def test_scan_text_input_for_embeddings() -> None:
     """
         Validate scan stats for embeddings text input
@@ -376,6 +399,20 @@ def test_scan_text_input_for_embeddings() -> None:
     assert scan.n_chars == len("hello world embeddings input")
     assert scan.input_tokens >= 1
 
+def test_scan_text_input_for_embeddings_empty() -> None:
+    """
+        Validate scan handles empty embeddings input
+    """
+
+    scan = scan_text_input_for_embeddings(
+        text="",
+        chunk_size=10,
+        chunk_overlap=2,
+    )
+
+    assert scan.n_chars == 0
+    assert scan.input_tokens == 0
+    
 def test_scan_folder_txt_inputs_chat(tmp_path: Path) -> None:
     """
         Validate folder scan in chat mode
