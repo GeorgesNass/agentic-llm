@@ -21,6 +21,7 @@ def test_settings_can_be_loaded():
     
     settings = get_settings()
     assert settings is not None
+    assert hasattr(settings, "top_k")
 
 ## ============================================================
 ## CHUNKING
@@ -40,6 +41,21 @@ def test_chunking_produces_multiple_chunks():
     )
 
     assert len(chunks) > 1
+
+
+def test_chunking_empty_text():
+    """
+        Ensure chunking handles empty text
+    """
+
+    chunks = chunk_text(
+        text="",
+        source="unit-test",
+        chunk_size=500,
+        chunk_overlap=100,
+    )
+
+    assert chunks == []
 
 ## ============================================================
 ## GCS PATH BUILDER
@@ -77,3 +93,21 @@ def test_retrieve_top_k_returns_expected_chunks():
     )
 
     assert len(results) == 1
+
+def test_retrieve_top_k_empty_index():
+    """
+        Ensure retrieval handles empty index
+    """
+
+    index = RAGIndex(
+        embeddings=np.empty((0, 2)),
+        chunks=[],
+    )
+
+    results = retrieve_top_k(
+        index=index,
+        query="hello",
+        top_k=1,
+    )
+
+    assert results == []

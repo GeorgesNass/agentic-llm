@@ -19,6 +19,7 @@ tmp/
 **/*.xml
 **/*.sha*
 
+
 ## Pytest cache (anywhere)
 .pytest_cache/
 

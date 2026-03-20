@@ -4,227 +4,429 @@ __copyright__ = None
 __version__ = "1.0.0"
 __email__ = "georges.nassopoulos@gmail.com"
 __status__ = "Prod"
-__desc__ = "Main Streamlit entrypoint for the rag-drive-gcp project (Drive → OCR → GCS → RAG chat)."
+__desc__ = "Main entrypoint for rag-drive-gcp: configuration validation, ingestion, RAG query and optional Streamlit launcher."
 '''
 
-from typing import Dict
+from __future__ import annotations
 
-import streamlit as st
+import argparse
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Optional
 
 from src.model.settings import get_settings
 from src.pipelines import run_drive_ingestion_pipeline, run_rag_query_pipeline
 from src.utils.logging_utils import get_logger
 
 ## ============================================================
+## CONSTANTS
+## ============================================================
+APP_VERSION = "1.0.0"
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_PLATFORM_ERROR = 2
+
+## ============================================================
 ## LOGGER INITIALIZATION
 ## ============================================================
 logger = get_logger("main")
 
-
 ## ============================================================
-## UI INITIALIZATION
+## CLI ARGUMENTS
 ## ============================================================
-def _init_page() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     """
-        Initialize Streamlit page configuration
-    """
-    
-    st.set_page_config(
-        page_title="rag-drive-gcp",
-        page_icon="🧠",
-        layout="wide",
-    )
-
-def _ensure_session_state() -> None:
-    """
-        Ensure required Streamlit session state variables exist
-    """
-    
-    if "chat_history" not in st.session_state:
-        st.session_state["chat_history"] = []
-
-    if "last_ingestion_status" not in st.session_state:
-        st.session_state["last_ingestion_status"] = None
-
-def _render_sidebar(settings) -> Dict:
-    """
-        Render sidebar configuration controls
-
-        Args:
-            settings: Application settings loaded from environment
+        Build CLI parser for rag-drive-gcp
 
         Returns:
-            Dict: User-selected configuration parameters
+            Configured ArgumentParser
     """
-    
-    st.sidebar.header("Configuration")
 
-    folder_id = st.sidebar.text_input(
-        "Google Drive folder ID",
-        value=settings.drive_folder_id or "",
-        help="ID of the Google Drive folder to ingest.",
+    parser = argparse.ArgumentParser(
+        description="rag-drive-gcp launcher: validate config, ingest Drive files, run RAG query, or launch Streamlit UI.",
+        add_help=True,
     )
 
-    run_ocr = st.sidebar.checkbox(
-        "Enable OCR (PDFs / images)",
-        value=True,
-        help="Run OCR locally when documents are not text-based.",
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {APP_VERSION}",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate arguments and log intended action without executing it.",
+    )
+    parser.add_argument(
+        "--validate-config",
+        action="store_true",
+        help="Validate settings loading and exit.",
     )
 
-    top_k = st.sidebar.slider(
-        "Top-K retrieved chunks",
-        min_value=1,
-        max_value=30,
-        value=int(settings.top_k),
-        step=1,
+    ## Execution modes
+    parser.add_argument(
+        "--ingest",
+        action="store_true",
+        help="Run Google Drive ingestion pipeline.",
+    )
+    parser.add_argument(
+        "--query",
+        action="store_true",
+        help="Run one RAG query from CLI.",
+    )
+    parser.add_argument(
+        "--run-ui",
+        action="store_true",
+        help="Launch the dedicated Streamlit UI file.",
     )
 
-    chunk_size = st.sidebar.slider(
-        "Chunk size",
-        min_value=256,
-        max_value=2048,
-        value=int(settings.chunk_size),
-        step=64,
+    ## Shared inputs
+    parser.add_argument(
+        "--folder-id",
+        type=str,
+        default="",
+        help="Google Drive folder ID override for ingestion.",
+    )
+    parser.add_argument(
+        "--run-ocr",
+        action="store_true",
+        help="Enable OCR during ingestion.",
+    )
+    parser.add_argument(
+        "--keep-local",
+        action="store_true",
+        help="Keep local files after ingestion.",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=0,
+        help="Top-K chunks for retrieval. If 0, use settings value.",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=0,
+        help="Chunk size override. If 0, use settings value.",
+    )
+    parser.add_argument(
+        "--chunk-overlap",
+        type=int,
+        default=0,
+        help="Chunk overlap override. If 0, use settings value.",
     )
 
-    chunk_overlap = st.sidebar.slider(
-        "Chunk overlap",
-        min_value=0,
-        max_value=512,
-        value=int(settings.chunk_overlap),
-        step=32,
+    ## Query input
+    parser.add_argument(
+        "--question",
+        type=str,
+        default="",
+        help="Question to ask through the RAG pipeline.",
     )
 
-    keep_local = st.sidebar.checkbox(
-        "Keep local files (debug)",
-        value=bool(settings.keep_local),
-        help="If disabled, local temporary files are deleted after successful upload to GCS.",
+    ## Optional UI launcher path
+    parser.add_argument(
+        "--ui-file",
+        type=str,
+        default="",
+        help="Optional path to the dedicated Streamlit UI file.",
     )
+
+    return parser
+
+## ============================================================
+## HELPERS
+## ============================================================
+def _build_summary(
+    action: str,
+    success: bool,
+    start: float,
+    details: Optional[dict] = None,
+) -> dict:
+    """
+        Build standardized execution summary
+
+        Args:
+            action: Executed action name
+            success: Execution status
+            start: Monotonic start timestamp
+            details: Optional structured details
+
+        Returns:
+            Standardized summary dictionary
+    """
 
     return {
-        "folder_id": folder_id.strip(),
-        "run_ocr": run_ocr,
-        "top_k": top_k,
-        "chunk_size": chunk_size,
-        "chunk_overlap": chunk_overlap,
-        "keep_local": keep_local,
+        "action": action,
+        "success": success,
+        "duration_seconds": round(time.monotonic() - start, 3),
+        "details": details or {},
     }
 
-## ============================================================
-## MAIN STREAMLIT APPLICATION
-## ============================================================
-def main() -> None:
+def _resolve_runtime_params(settings, args: argparse.Namespace) -> dict:
     """
-        Main Streamlit application entrypoint
+        Resolve effective runtime parameters from settings and CLI overrides
 
-        Features:
-            - Google Drive ingestion
-            - Optional OCR (local docker or remote microservice)
-            - Upload TXT + embeddings artifacts to GCS
-            - RAG-based chat using Vertex AI
+        Args:
+            settings: Application settings object
+            args: Parsed CLI arguments
+
+        Returns:
+            Effective runtime parameters
     """
-    
-    _init_page()
-    _ensure_session_state()
 
-    settings = get_settings()
-    params = _render_sidebar(settings)
+    return {
+        "folder_id": args.folder_id.strip() or settings.drive_folder_id or "",
+        "run_ocr": bool(args.run_ocr),
+        "keep_local": bool(args.keep_local) if args.keep_local else bool(settings.keep_local),
+        "top_k": int(args.top_k) if int(args.top_k) > 0 else int(settings.top_k),
+        "chunk_size": (
+            int(args.chunk_size) if int(args.chunk_size) > 0 else int(settings.chunk_size)
+        ),
+        "chunk_overlap": (
+            int(args.chunk_overlap)
+            if int(args.chunk_overlap) > 0
+            else int(settings.chunk_overlap)
+        ),
+    }
 
-    st.title("rag-drive-gcp")
-    st.caption(
-        "Drive API → OCR (local) → GCS (text + embeddings) → Vertex AI → RAG Chat"
-    )
+def _validate_action_selection(args: argparse.Namespace) -> None:
+    """
+        Validate CLI action selection
 
-    ## ========================================================
-    ## INGESTION SECTION
-    ## ========================================================
-    st.subheader("1) Ingest documents from Google Drive")
+        Args:
+            args: Parsed CLI arguments
 
-    col_left, col_right = st.columns([1, 2])
+        Raises:
+            ValueError: If action selection is invalid
+    """
 
-    with col_left:
-        ingest_clicked = st.button(
-            "Run ingestion",
-            use_container_width=True,
+    selected_actions = [bool(args.ingest), bool(args.query), bool(args.run_ui)]
+
+    if sum(selected_actions) > 1:
+        raise ValueError("Use only one action at a time: --ingest, --query, or --run-ui.")
+
+    if args.query and not args.question.strip():
+        raise ValueError("--question is required with --query.")
+
+def _launch_streamlit_ui(ui_file: str) -> None:
+    """
+        Launch the dedicated Streamlit UI file
+
+        Args:
+            ui_file: Path to the Streamlit entry file
+
+        Returns:
+            None
+
+        Raises:
+            FileNotFoundError: If the UI file does not exist
+            RuntimeError: If Streamlit launcher fails
+    """
+
+    if not ui_file.strip():
+        raise ValueError(
+            "--ui-file is required with --run-ui because the Streamlit UI lives in a dedicated file."
         )
 
-    with col_right:
-        st.info(
-            "Downloads and exports Drive files, applies OCR if needed, "
-            "generates embeddings with Vertex AI, uploads artifacts to GCS, "
-            "and cleans up local traces."
-        )
+    ui_path = Path(ui_file).expanduser().resolve()
 
-    if ingest_clicked:
-        if not params["folder_id"]:
-            st.error("Please provide a Google Drive folder ID.")
-        else:
-            try:
-                logger.info("Starting ingestion pipeline from Streamlit UI.")
-                status = run_drive_ingestion_pipeline(
-                    drive_folder_id=params["folder_id"],
-                    run_ocr=params["run_ocr"],
-                    chunk_size=params["chunk_size"],
-                    chunk_overlap=params["chunk_overlap"],
-                    keep_local=params["keep_local"],
-                )
-                st.session_state["last_ingestion_status"] = status
-                st.success("Ingestion completed successfully.")
-                st.json(status)
-            except Exception as exc:
-                logger.exception("Ingestion pipeline failed.")
-                st.error("Ingestion failed. Check logs for details.")
-                st.exception(exc)
+    if not ui_path.exists():
+        raise FileNotFoundError(f"Streamlit UI file not found: {ui_path}")
 
-    if st.session_state.get("last_ingestion_status"):
-        with st.expander("Last ingestion status", expanded=False):
-            st.json(st.session_state["last_ingestion_status"])
+    cmd = ["streamlit", "run", str(ui_path)]
 
-    st.divider()
+    logger.info("Launching Streamlit UI | file=%s", ui_path)
 
-    ## ========================================================
-    ## RAG CHAT SECTION
-    ## ========================================================
-    st.subheader("2) RAG Chat")
+    try:
+        subprocess.run(cmd, check=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError("streamlit command is not available in the current environment.") from exc
 
-    user_question = st.text_input(
-        "Ask a question",
-        value="",
-        placeholder="e.g. Summarize the key medical insights from the documents",
-    )
+## ============================================================
+## MAIN EXECUTION
+## ============================================================
+def main() -> int:
+    """
+        Main CLI entrypoint for rag-drive-gcp
 
-    ask_clicked = st.button(
-        "Ask",
-        use_container_width=True,
-    )
+        Supported actions:
+            - validate configuration
+            - run ingestion pipeline
+            - run one RAG query from CLI
+            - launch external Streamlit UI file
 
-    if ask_clicked and user_question.strip():
-        try:
-            logger.info("Executing RAG query.")
+        Returns:
+            Standardized process exit code
+    """
+
+    start_time = time.monotonic()
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    try:
+        settings = get_settings()
+        runtime_params = _resolve_runtime_params(settings, args)
+
+        if args.validate_config:
+            logger.info(
+                "Configuration validation succeeded | drive_folder_id=%s | top_k=%s | chunk_size=%s | chunk_overlap=%s",
+                runtime_params["folder_id"],
+                runtime_params["top_k"],
+                runtime_params["chunk_size"],
+                runtime_params["chunk_overlap"],
+            )
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="validate-config",
+                    success=True,
+                    start=start_time,
+                    details=runtime_params,
+                ),
+            )
+            return EXIT_SUCCESS
+
+        _validate_action_selection(args)
+
+        if not any([args.ingest, args.query, args.run_ui]):
+            parser.print_help()
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="help",
+                    success=True,
+                    start=start_time,
+                ),
+            )
+            return EXIT_SUCCESS
+
+        if args.dry_run:
+            logger.info(
+                "Dry-run | ingest=%s | query=%s | run_ui=%s | params=%s",
+                bool(args.ingest),
+                bool(args.query),
+                bool(args.run_ui),
+                runtime_params,
+            )
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="dry-run",
+                    success=True,
+                    start=start_time,
+                    details=runtime_params,
+                ),
+            )
+            return EXIT_SUCCESS
+
+        ## INGESTION
+        if args.ingest:
+            if not runtime_params["folder_id"]:
+                raise ValueError("A Google Drive folder ID is required for --ingest.")
+
+            logger.info("Starting ingestion pipeline from CLI")
+
+            status = run_drive_ingestion_pipeline(
+                drive_folder_id=runtime_params["folder_id"],
+                run_ocr=runtime_params["run_ocr"],
+                chunk_size=runtime_params["chunk_size"],
+                chunk_overlap=runtime_params["chunk_overlap"],
+                keep_local=runtime_params["keep_local"],
+            )
+
+            logger.info("Ingestion completed successfully | status=%s", status)
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="ingestion",
+                    success=True,
+                    start=start_time,
+                    details=runtime_params,
+                ),
+            )
+            return EXIT_SUCCESS
+
+        ## RAG QUERY
+        if args.query:
+            logger.info("Starting RAG CLI query")
+
             answer = run_rag_query_pipeline(
-                question=user_question.strip(),
-                top_k=params["top_k"],
+                question=args.question.strip(),
+                top_k=runtime_params["top_k"],
             )
 
-            st.session_state["chat_history"].append(
-                {"role": "user", "content": user_question.strip()}
-            )
-            
-            st.session_state["chat_history"].append(
-                {"role": "assistant", "content": answer}
-            )
-        except Exception as exc:
-            logger.exception("RAG query failed.")
-            st.error("Query failed. Check logs for details.")
-            st.exception(exc)
+            logger.info("RAG query completed successfully")
+            print(answer)
 
-    ## Render chat history
-    for message in st.session_state["chat_history"]:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="rag-query",
+                    success=True,
+                    start=start_time,
+                    details={
+                        "top_k": runtime_params["top_k"],
+                        "question_length": len(args.question.strip()),
+                    },
+                ),
+            )
+            return EXIT_SUCCESS
+
+        ## STREAMLIT LAUNCHER
+        if args.run_ui:
+            _launch_streamlit_ui(args.ui_file)
+
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="run-ui",
+                    success=True,
+                    start=start_time,
+                    details={"ui_file": args.ui_file},
+                ),
+            )
+            return EXIT_SUCCESS
+
+        logger.info(
+            "Summary | %s",
+            _build_summary(
+                action="run",
+                success=True,
+                start=start_time,
+            ),
+        )
+        return EXIT_SUCCESS
+
+    except KeyboardInterrupt:
+        logger.warning("Execution interrupted by user")
+        logger.warning(
+            "Summary | %s",
+            _build_summary(
+                action="interrupt",
+                success=False,
+                start=start_time,
+            ),
+        )
+        return EXIT_FAILURE
+
+    except Exception as exc:
+        logger.exception("Unhandled error in rag-drive-gcp main")
+        logger.error(
+            "Summary | %s",
+            _build_summary(
+                action="unhandled-error",
+                success=False,
+                start=start_time,
+                details={"error": str(exc)},
+            ),
+        )
+        return EXIT_PLATFORM_ERROR
 
 ## ============================================================
 ## SCRIPT ENTRY POINT
 ## ============================================================
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
