@@ -1,70 +1,168 @@
-## === Adapted from .dockerignore ===
-## (Keeps identical exclusions and adds hidden/local_ rules)
+## ============================================================
+## Hidden / local folders
+## ============================================================
 
-## Ignore all hidden folders (starting with .)
-.*/ 
-!.git/        # except the .git folder itself
-
-## Ignore all folders starting with 'local_'
+.*/
+!.git/
 local_*/
 
-## ingore tmp foldee
-tmp/
-
-## (Optional) Ensure logs/tmp are ignored
+## ============================================================
+## Logs / temp / cache
+## ============================================================
 
 logs/
 tmp/
+cache/
+*.log
+*.tmp
+*.cache
+*.bak
+*.swp
+
+## ============================================================
+## Data
+## ============================================================
+
+data/raw/
+data/interim/
+data/processed/
+
+**/*.parquet
 **/*.json*
-**/*.xml
+**/*.csv*
+
+## Sensitive text files
+**/*.rss
+**/*.rss.txt
+
+## ============================================================
+## Models & artifacts
+## ============================================================
+
+models/
+artifacts/mlflow/
+artifacts/models/
+artifacts/exports/
+
+**/*.pkl
+**/*.joblib
+**/*.pt
+**/*.pth
+**/*.h5
+**/*.onnx
+**/*.bin
+
+## ============================================================
+## HuggingFace / Transformers / LoRA
+## ============================================================
+
+**/pytorch_model.bin
+**/model.safetensors
+**/adapter_model.bin
+**/adapter_model.safetensors
+
+**/checkpoint-*/
+**/trainer_state.json
+**/training_args.bin
+
+**/tokenizer.json
+**/tokenizer_config.json
+**/special_tokens_map.json
+**/vocab.json
+**/merges.txt
+
+**/lora_adapter/
+**/peft_config.json
+
+.huggingface/
+.cache/huggingface/
+.cache/torch/
+
+**/accelerate_config.yaml
+**/zero_to_fp32.py
+
+## ============================================================
+## MLflow
+## ============================================================
+
+**/mlruns/
+**/mlartifacts/
+
+## ============================================================
+## Databases / checksums
+## ============================================================
+
+**/mesh.db
+**/*.db
+**/*.sqlite
+**/*.sqlite3
 **/*.sha*
 
+## ============================================================
+## Images / exports
+## ============================================================
 
-## Pytest cache (anywhere)
-.pytest_cache/
+**/*.png
+**/*.jpeg
+**/*.jpg
+**/*.xml
 
+## ============================================================
+## Secrets
+## ============================================================
 
-## === Common folders and files to ignore ===
+secrets/
+
+## ============================================================
+## Python
+## ============================================================
+
 __pycache__/
-
 *.pyc
 *.pyo
 *.pyd
-*.log
-*.tmp
-*.bak
-*.swp
-*.exe
-.DS_Store
-Thumbs.db
 
+## ============================================================
 ## Virtual environments
+## ============================================================
+
 venv/
 .env/
 .venv/
 env/
 
-## IDEs
+## ============================================================
+## IDEs / notebooks
+## ============================================================
+
 .vscode/
 .idea/
 *.sublime-workspace
 *.sublime-project
+.ipynb_checkpoints/
 
+## ============================================================
 ## Build / dist
+## ============================================================
+
 build/
 dist/
 *.egg-info/
 
-## Notebooks checkpoints
-.ipynb_checkpoints/
-
+## ============================================================
 ## Tests / coverage
+## ============================================================
+
 .coverage
 htmlcov/
 .tox/
+.pytest_cache/
 pytest_cache/
 
-## Data and cache
-cache/
-logs/
-tmp/
+## ============================================================
+## OS files
+## ============================================================
+
+.DS_Store
+Thumbs.db
+*.exe
