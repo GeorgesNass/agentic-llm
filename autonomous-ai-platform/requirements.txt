@@ -1,0 +1,31 @@
+fastapi
+uvicorn[standard]
+streamlit
+pydantic
+pydantic-settings
+python-dotenv
+requests
+httpx
+aiohttp
+sentence-transformers
+transformers
+torch
+numpy
+scipy
+pandas
+scikit-learn
+tqdm
+faiss-cpu
+chromadb
+sqlalchemy
+prometheus-client
+pytest
+pytest-asyncio
+pytest-cov
+orjson
+mlflow
+python-multipart
+
+# Linux-only (Windows install must pass)
+uvloop; platform_system != "Windows"
+vllm; platform_system != "Windows"
