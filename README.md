@@ -83,11 +83,11 @@ autonomous-ai-platform/
 │   └──test_unit.py                      ## Unit tests for agents/rag/sql/orchestrator (no real HTTP calls)                 
 │
 └── src/
-	├── __init__.py                      
 	├── pipeline.py                      ## End-to-end orchestration (manual mode)
 	│
 	├── core/
-	│   ├── __init__.py                  ## Core package marker
+    │   ├── auth.py                      ## JWT auth: tokens, login, refresh, dependencies
+    │   ├── security.py                  ## RBAC, middleware, permissions, request security		
 	│   ├── mcp_server.py                ## MCP server
 	│   ├── streamlit_app.py             ## Streamlit chatbot-like app
 	│   ├── schema.py                    ## Pydantic request/response models (API contract)
@@ -95,20 +95,17 @@ autonomous-ai-platform/
 	│   └── errors.py                    ## Custom exceptions + helpers (log_and_raise_*)
 	│
 	├── llm/
-	│   ├── __init__.py                  	
 	│   ├── local_runtime.py             ## GGUF / quantized local models
 	│   ├── api_clients.py               ## ChatGPT / Grok / others
 	│   └── embeddings.py                ## Local or API embeddings
 	│	
 	├── agents/                          
-	│   ├── __init__.py                  
 	│   ├── reasoning.py                 ## Task planning & Self-evaluation agent
 	│   ├── executor.py                  ## Tool execution agent
 	│   ├── text_to_sql.py               ## LLM-driven SQL generation	
 	│   └── aggregator.py                ## Final answer synthesis
 	│
 	├── orchestrator/
-	│   ├── __init__.py                  	
 	│   ├── routing.py                   ## Tool routing logic & GPU/CPU/API model switching
 	│   ├── retrieval.py                 ## chunking + ingestion + rag_search
 	│   ├── vector_store.py              ## FAISS + Chroma + factory	
@@ -116,13 +113,11 @@ autonomous-ai-platform/
 	│   └── loop.py                      ## Self-correction loop	              	
 	│
 	├── monitoring/
-	│   ├── __init__.py          
 	│   ├── evaluation.py                ## LLM-as-a-judge & Scoring + metrics	
 	│   ├── metrics.py                   ## Prometheus exporters
 	│   └── tracing.py                   ## Execution traces
 	│
 	└── utils/
-		├── __init__.py
 		├── logging_utils.py      		 ## Logging + execution decorator
 		├── sqlite_manager.py     	     ## SQLite init & queries
 		├── env_utils.py                 ## .env readers & config resolvers
