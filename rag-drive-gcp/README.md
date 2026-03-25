@@ -57,7 +57,11 @@ rag-drive-gcp/
 │   └── test_unit.py                ## Minimal unit tests
 │
 └── src/
+    ├── pipeline.py                 ## End-to-end orchestration
+    │
     ├── core/
+    │   ├── auth.py                 ## JWT auth: tokens, login, refresh, dependencies
+    │   ├── security.py             ## RBAC, middleware, permissions, request security	
     │   ├── ocr.py                  ## OCR processing
     │   ├── rag.py                  ## RAG retrieval pipeline
     │   ├── vertex.py               ## Vertex AI embeddings
