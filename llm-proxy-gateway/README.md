@@ -72,25 +72,23 @@ llm-proxy-gateway/
 │   └── test_unit.py                   ## Unit tests for utils/costing/evaluation (no real HTTP calls)
 │
 └── src/
-    ├── __init__.py                    ## Package marker
     ├── pipeline.py                    ## Orchestration: cost → (embeddings | chat) → optional eval/export
     │
     ├── core/
-    │   ├── __init__.py                ## Core package marker
+    │   ├── auth.py                    ## JWT auth: tokens, login, refresh, dependencies
+    │   ├── security.py                ## RBAC, middleware, permissions, request security		
     │   ├── service.py                 ## FastAPI app factory + routes (/healthcheck, /cost, /chat, /embeddings, /evaluation)
     │   ├── schema.py                  ## Pydantic request/response models (API contract)
     │   ├── config.py                  ## Settings loader (env parsing, paths, environment=dev/prod)
     │   └── errors.py                  ## Custom exceptions + helpers (log_and_raise_*)
     │
     ├── llm/
-    │   ├── __init__.py                ## LLM package marker
     │   ├── completion.py              ## Provider chat completion clients + dispatch (OpenAI/Gemini/xAI)
     │   ├── embeddings.py              ## Provider embeddings clients + dispatch (OpenAI/Gemini/xAI)
     │   ├── evaluation.py              ## Completion evaluation orchestration (calls metrics_utils)
     │   └── costing.py                 ## Cost simulation orchestration (catalog load, pricing resolution, calls scan helpers)
     │
     └── utils/
-        ├── __init__.py                ## Utils package marker
         ├── logging_utils.py           ## Centralized logging + decorator (execution time + path on error)
         ├── utils.py                   ## Generic helpers: env, paths, safe IO, CLI input helpers, scan helpers, CSV export, basic stats
         ├── http_utils.py              ## Shared HTTP helpers (headers, payload builders, safe JSON logging)
