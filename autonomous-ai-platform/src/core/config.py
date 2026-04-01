@@ -29,6 +29,21 @@ logger = get_logger(__name__)
 PLACEHOLDER_PREFIXES: Tuple[str, ...] = ("<YOUR_", "YOUR_", "CHANGE_ME", "REPLACE_ME", "TODO")
 
 ## ============================================================
+## FAILSAFE DEFAULT VALUES (NON-SENSITIVE)
+## ============================================================
+
+local_model_path = _get_env_str("LOCAL_MODEL_PATH", "path/to/local/model.gguf")
+hf_model_id = _get_env_str("HF_MODEL_ID", "repo/model-name")
+hf_model_filename = _get_env_str("HF_MODEL_FILENAME", "model.gguf")
+
+vllm_model = _get_env_str("VLLM_MODEL", "local-model")
+vllm_api_key = _get_env_str("VLLM_API_KEY", "")
+
+generic_base_url = _get_env_str("GENERIC_OAI_BASE_URL", "http://localhost:8000/v1")
+generic_model = _get_env_str("GENERIC_OAI_MODEL", "local-model")
+generic_embedding_model = _get_env_str("GENERIC_OAI_EMBEDDING_MODEL", "local-embedding")
+
+## ============================================================
 ## OS / SYSTEM CONSTANTS
 ## ============================================================
 SYSTEM_NAME = platform.system().lower()
@@ -884,12 +899,22 @@ def get_config() -> AppConfig:
     ])
 
     ## Read direct keys or file-based secrets
+    secrets_path = _get_env_path("LLM_SECRETS_FILE", "", root_dir)
+
+    llm_json = {}
+    if secrets_path and secrets_path.exists():
+        llm_json = json.loads(secrets_path.read_text(encoding=DEFAULT_ENCODING))
+
     api_keys = ApiKeysConfig(
-        openai_api_key=_read_secret_value("OPENAI_API_KEY", "OPENAI_API_KEY_FILE", root_dir=root_dir),
-        xai_api_key=_read_secret_value("XAI_API_KEY", "XAI_API_KEY_FILE", root_dir=root_dir),
-        google_api_key=_read_secret_value("GOOGLE_API_KEY", "GOOGLE_API_KEY_FILE", root_dir=root_dir),
-        anthropic_api_key=_read_secret_value("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY_FILE", root_dir=root_dir),
+        openai_api_key=llm_json.get("openai_api_key", ""),
+        xai_api_key=llm_json.get("xai_api_key", ""),
+        google_api_key=llm_json.get("google_api_key", ""),
+        anthropic_api_key="",
     )
+
+    ## Optional direct access if needed elsewhere
+    google_generative_ai_api_key = llm_json.get("google_generative_ai_api_key", "")
+    x_api_key = llm_json.get("x_api_key", "")
 
     ## Build final structured config
     config_obj = AppConfig(
