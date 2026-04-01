@@ -773,8 +773,10 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
     )
 
     ## Build Drive section
-    drive = DriveConfig(drive_folder_id=_get_env("DRIVE_FOLDER_ID", "") or None)
-
+    drive = DriveConfig(
+        drive_folder_id=gcp_json.get("drive_folder_id", "")
+    )
+    
     ## Build OCR section
     ocr = OcrConfig(
         ocr_mode=_validate_ocr_mode(_get_env("OCR_MODE", DEFAULT_OCR_MODE)),
@@ -782,18 +784,25 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         ocr_service_url=_get_env("OCR_SERVICE_URL", "") or None,
     )
 
+    ## Load GCP config JSON
+    gcp_config_path = _resolve_path(_get_env("GCP_CONFIG_FILE", ""), project_root)
+
+    gcp_json = {}
+    if gcp_config_path.exists():
+        gcp_json = json.loads(gcp_config_path.read_text(encoding=DEFAULT_ENCODING))
+        
     ## Build GCP section
     gcp = GcpConfig(
-        gcp_project_id=_get_env("GCP_PROJECT_ID", "") or None,
-        gcp_region=_get_profiled_env("GCP_REGION", DEFAULT_GCP_REGION, profile),
+        gcp_project_id=gcp_json.get("project_id", ""),
+        gcp_region=gcp_json.get("region", DEFAULT_GCP_REGION),
         vertex_llm_model=_get_env("VERTEX_LLM_MODEL", DEFAULT_VERTEX_LLM_MODEL) or None,
         vertex_embed_model=_get_env("VERTEX_EMBED_MODEL", DEFAULT_VERTEX_EMBED_MODEL) or None,
-        gcs_bucket_text=_get_env("GCS_BUCKET_TEXT", "") or None,
+        gcs_bucket_text=gcp_json.get("gcs_bucket_text", ""),
         gcs_prefix_text=_get_env("GCS_PREFIX_TEXT", DEFAULT_GCS_PREFIX_TEXT),
-        gcs_bucket_embeddings=_get_env("GCS_BUCKET_EMBEDDINGS", "") or None,
+        gcs_bucket_embeddings=gcp_json.get("gcs_bucket_embeddings", ""),
         gcs_prefix_embeddings=_get_env("GCS_PREFIX_EMBEDDINGS", DEFAULT_GCS_PREFIX_EMBEDDINGS),
     )
-
+    
     ## Build retrieval section
     retrieval = RetrievalConfig(
         chunk_size=_get_profiled_env_int("CHUNK_SIZE", DEFAULT_CHUNK_SIZE, profile),
