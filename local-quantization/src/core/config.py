@@ -81,6 +81,25 @@ SUPPORTED_BACKENDS: Tuple[str, ...] = ("gguf", "awq", "gptq", "bitsandbytes", "o
 SUPPORTED_INPUT_EXTENSIONS: Tuple[str, ...] = (".json", ".jsonl", ".txt", ".csv")
 SUPPORTED_EXPORT_EXTENSIONS: Tuple[str, ...] = (".gguf", ".awq", ".gptq", ".bin", ".onnx", ".safetensors")
 
+def _read_json_secret(secret_file: Path) -> dict[str, Any]:
+    """
+        Read a JSON secret file safely
+
+        Args:
+            secret_file (Path): Path to the JSON file
+
+        Returns:
+            dict[str, Any]: Parsed JSON content or empty dict
+    """
+
+    if not secret_file.exists():
+        return {}
+
+    try:
+        return json.loads(secret_file.read_text(encoding=DEFAULT_ENCODING))
+    except Exception:
+        return {}
+        
 ## ============================================================
 ## CONFIG MODELS
 ## ============================================================
@@ -814,10 +833,14 @@ def get_config() -> AppConfig:
         deterministic=_get_env_bool("DETERMINISTIC", True),
     )
 
-    ## Resolve optional secrets
+    ## Resolve optional secrets Load JSON secrets
+    secrets_path = _get_env_path("APP_SECRETS_FILE", "", project_root)
+
+    app_json = _read_json_secret(secrets_path) if secrets_path else {}
+
     secrets = SecretsConfig(
-        huggingface_token=_read_secret_value("HUGGINGFACE_TOKEN", "HUGGINGFACE_TOKEN_FILE", project_root=project_root),
-        api_key=_read_secret_value("API_KEY", "API_KEY_FILE", project_root=project_root),
+        huggingface_token=app_json.get("huggingface_token", ""),
+        api_key=app_json.get("api_key", ""),
     )
 
     ## Build final config
