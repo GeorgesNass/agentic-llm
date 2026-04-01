@@ -205,12 +205,16 @@ class SecretsConfig:
             gemini_api_key: Gemini API key
             xai_api_key: xAI API key
             api_key: Internal API key
+            mlflow_tracking_username: MLflow username
+            mlflow_tracking_password: MLflow password
     """
 
     openai_api_key: str
     gemini_api_key: str
     xai_api_key: str
     api_key: str
+    mlflow_tracking_username: str
+    mlflow_tracking_password: str
 
 @dataclass(frozen=True)
 class AppConfig:
@@ -478,6 +482,25 @@ def _read_secret_value(direct_key: str, file_key: str, *, project_root: Path, de
         return secret_file.read_text(encoding=DEFAULT_ENCODING).strip()
     return default
 
+def _read_json_secret(secret_file: Path) -> dict[str, Any]:
+    """
+        Read a JSON secret file safely
+
+        Args:
+            secret_file: Path to JSON file
+
+        Returns:
+            Parsed dict
+    """
+
+    if not secret_file.exists():
+        return {}
+
+    try:
+        return json.loads(secret_file.read_text(encoding=DEFAULT_ENCODING))
+    except Exception:
+        return {}
+        
 ## ============================================================
 ## PROFILE HELPERS
 ## ============================================================
@@ -876,9 +899,32 @@ def get_config() -> AppConfig:
     )
 
     ## Resolve optional secrets from direct env or files
+    ## LOAD LLM + MLFLOW SECRETS
+
+    secrets_path = _resolve_path(
+        _get_env("LLM_SECRETS_FILE", ""),
+        project_root=project_root,
+    )
+
+    llm_json = _read_json_secret(secrets_path) if secrets_path else {}
+
     secrets = SecretsConfig(
-        mlflow_tracking_username=_read_secret_value("MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_USERNAME_FILE", project_root=project_root),
-        mlflow_tracking_password=_read_secret_value("MLFLOW_TRACKING_PASSWORD", "MLFLOW_TRACKING_PASSWORD_FILE", project_root=project_root),
+        openai_api_key=llm_json.get("openai_api_key", ""),
+        gemini_api_key=llm_json.get("google_api_key", ""),
+        xai_api_key=llm_json.get("xai_api_key", ""),
+        api_key=llm_json.get("x_api_key", ""),
+
+        ## KEEP EXISTING MLFLOW
+        mlflow_tracking_username=_read_secret_value(
+            "MLFLOW_TRACKING_USERNAME",
+            "MLFLOW_TRACKING_USERNAME_FILE",
+            project_root=project_root,
+        ),
+        mlflow_tracking_password=_read_secret_value(
+            "MLFLOW_TRACKING_PASSWORD",
+            "MLFLOW_TRACKING_PASSWORD_FILE",
+            project_root=project_root,
+        ),
     )
 
     ## Build and validate final application config
