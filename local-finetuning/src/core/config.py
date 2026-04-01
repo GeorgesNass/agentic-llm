@@ -75,6 +75,25 @@ DEFAULT_REJECT_TOKEN = "UNKNOWN"
 SUPPORTED_INPUT_EXTENSIONS = (".json", ".jsonl", ".csv", ".txt")
 SUPPORTED_EXPORT_EXTENSIONS = (".json", ".jsonl", ".bin", ".safetensors")
 
+def _read_json_secret(secret_file: Path) -> dict[str, Any]:
+    """
+        Read a JSON secret file safely
+
+        Args:
+            secret_file (Path): Path to the JSON file
+
+        Returns:
+            dict[str, Any]: Parsed JSON content or empty dict
+    """
+
+    if not secret_file.exists():
+        return {}
+
+    try:
+        return json.loads(secret_file.read_text(encoding=DEFAULT_ENCODING))
+    except Exception:
+        return {}
+        
 ## ============================================================
 ## CONFIG MODELS
 ## ============================================================
@@ -775,7 +794,7 @@ def get_config() -> AppConfig:
     profile: ProfileName = "cpu" if profile_raw == "cpu" else "gpu"
 
     ## Validate placeholder values where relevant
-    _validate_required_placeholders(["ENVIRONMENT", "PROFILE", "HUGGINGFACE_TOKEN", "WANDB_API_KEY", "API_KEY"])
+    _validate_required_placeholders(["ENVIRONMENT", "PROFILE"])
 
     ## Build execution metadata
     execution = ExecutionMetadata(
@@ -857,11 +876,15 @@ def get_config() -> AppConfig:
         reject_token=_get_env("REJECT_TOKEN", DEFAULT_REJECT_TOKEN),
     )
 
-    ## Resolve optional secrets
+    ## Resolve optional secrets Load JSON secrets
+    secrets_path = _get_env_path("APP_SECRETS_FILE", "", project_root)
+
+    app_json = _read_json_secret(secrets_path) if secrets_path else {}
+
     secrets = SecretsConfig(
-        huggingface_token=_read_secret_value("HUGGINGFACE_TOKEN", "HUGGINGFACE_TOKEN_FILE", project_root=project_root),
-        wandb_api_key=_read_secret_value("WANDB_API_KEY", "WANDB_API_KEY_FILE", project_root=project_root),
-        api_key=_read_secret_value("API_KEY", "API_KEY_FILE", project_root=project_root),
+        huggingface_token=app_json.get("huggingface_token", ""),
+        wandb_api_key=app_json.get("wandb_api_key", ""),
+        api_key=app_json.get("api_key", ""),
     )
 
     ## Build final config
