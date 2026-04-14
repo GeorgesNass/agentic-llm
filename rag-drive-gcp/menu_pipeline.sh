@@ -6,9 +6,9 @@
 # Version: 1.0.0
 # Description:
 #   CLI menu to run the main rag-drive-gcp workflows:
-#   - validate configuration
-#   - run ingestion pipeline from Google Drive (with optional OCR)
-#   - run a RAG query from CLI
+#   - validate configuration (with data consistency)
+#   - run ingestion pipeline from Google Drive (with optional OCR) (with data consistency)
+#   - run a RAG query from CLI (with data consistency)
 #   - launch Streamlit UI (separate file)
 ###############################################################################
 
@@ -44,10 +44,10 @@ run_python() {
 while true; do
   echo ""
   echo "Select an action:"
-  echo " 1) Validate config"
+  echo " 1) Validate config (with data consistency)"
   echo " 2) Dry-run"
-  echo " 3) Run ingestion (Drive → OCR → GCS → embeddings)"
-  echo " 4) Run RAG query (CLI)"
+  echo " 3) Run ingestion (Drive → OCR → GCS → embeddings) (with data consistency)"
+  echo " 4) Run RAG query (CLI) (with data consistency)"
   echo " 5) Launch Streamlit UI"
   echo " 6) Show help"
   echo " 7) Show version"

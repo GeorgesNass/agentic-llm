@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from src.core.data_consistency import run_data_consistency
 from src.model.settings import get_settings
 from src.pipelines import run_drive_ingestion_pipeline, run_rag_query_pipeline
 from src.utils.logging_utils import get_logger
@@ -329,6 +330,22 @@ def main() -> int:
 
             logger.info("Starting ingestion pipeline from CLI")
 
+            ## ============================================================
+            ## DATA CONSISTENCY CHECK
+            ## ============================================================
+
+            consistency_result = run_data_consistency(
+                data={
+                    "text": "drive_ingestion",
+                },
+                strict=settings.data_consistency.strict_mode,
+            )
+
+            logger.info(f"Consistency OK: {consistency_result['is_consistent']}")
+
+            if not consistency_result["is_consistent"] and settings.data_consistency.strict_mode:
+                raise RuntimeError("Data consistency failed before ingestion")
+                
             status = run_drive_ingestion_pipeline(
                 drive_folder_id=runtime_params["folder_id"],
                 run_ocr=runtime_params["run_ocr"],
@@ -353,11 +370,27 @@ def main() -> int:
         if args.query:
             logger.info("Starting RAG CLI query")
 
+            ## ============================================================
+            ## DATA CONSISTENCY CHECK
+            ## ============================================================
+
+            consistency_result = run_data_consistency(
+                data={
+                    "query": args.question.strip(),
+                },
+                strict=settings.data_consistency.strict_mode,
+            )
+
+            logger.info(f"Consistency OK: {consistency_result['is_consistent']}")
+
+            if not consistency_result["is_consistent"] and settings.data_consistency.strict_mode:
+                raise RuntimeError("Data consistency failed for query")
+            
             answer = run_rag_query_pipeline(
                 question=args.question.strip(),
                 top_k=runtime_params["top_k"],
             )
-
+    
             logger.info("RAG query completed successfully")
             print(answer)
 

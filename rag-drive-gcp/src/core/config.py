@@ -228,6 +228,23 @@ class RetrievalConfig:
     top_k: int
 
 @dataclass(frozen=True)
+class DataConsistencyConfig:
+    """
+        Data consistency configuration
+
+        Args:
+            enabled: Enable consistency checks
+            strict_mode: Raise error if inconsistency
+            min_query_length: Minimum query length
+            min_embedding_dim: Minimum embedding dimension
+    """
+
+    enabled: bool
+    strict_mode: bool
+    min_query_length: int
+    min_embedding_dim: int
+    
+@dataclass(frozen=True)
 class SecretsConfig:
     """
         Secret values resolved from env or files
@@ -268,6 +285,7 @@ class AppConfig:
     gcp: GcpConfig
     retrieval: RetrievalConfig
     secrets: SecretsConfig
+    data_consistency: DataConsistencyConfig
 
 ## ============================================================
 ## DOTENV / ENV HELPERS
@@ -657,6 +675,14 @@ def _validate_config(config: AppConfig) -> None:
         if not all(required_fields):
             raise ConfigurationError("Missing required GCP / Vertex / GCS configuration for PROFILE=gcp")
 
+    ## Validate data consistency config
+    _validate_positive_int(config.data_consistency.min_query_length, "DATA_CONSISTENCY_MIN_QUERY_LENGTH")
+    _validate_positive_int(config.data_consistency.min_embedding_dim, "DATA_CONSISTENCY_MIN_EMBEDDING_DIM")
+
+    ## Strict mode logic
+    if config.data_consistency.strict_mode and not config.data_consistency.enabled:
+        raise ConfigurationError("DATA_CONSISTENCY_STRICT requires DATA_CONSISTENCY_ENABLED=True")
+
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -772,6 +798,13 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         allowed_origins=_get_env_list("ALLOWED_ORIGINS", ["*"]),
     )
 
+    ## Load GCP config JSON
+    gcp_config_path = _resolve_path(_get_env("GCP_CONFIG_FILE", ""), project_root)
+
+    gcp_json = {}
+    if gcp_config_path.exists():
+        gcp_json = json.loads(gcp_config_path.read_text(encoding=DEFAULT_ENCODING))
+        
     ## Build Drive section
     drive = DriveConfig(
         drive_folder_id=gcp_json.get("drive_folder_id", "")
@@ -784,13 +817,7 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         ocr_service_url=_get_env("OCR_SERVICE_URL", "") or None,
     )
 
-    ## Load GCP config JSON
-    gcp_config_path = _resolve_path(_get_env("GCP_CONFIG_FILE", ""), project_root)
 
-    gcp_json = {}
-    if gcp_config_path.exists():
-        gcp_json = json.loads(gcp_config_path.read_text(encoding=DEFAULT_ENCODING))
-        
     ## Build GCP section
     gcp = GcpConfig(
         gcp_project_id=gcp_json.get("project_id", ""),
@@ -810,6 +837,14 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         top_k=_get_profiled_env_int("TOP_K", DEFAULT_TOP_K, profile),
     )
 
+    ## Build data consistency config
+    data_consistency = DataConsistencyConfig(
+        enabled=_get_profiled_env_bool("DATA_CONSISTENCY_ENABLED", True, profile),
+        strict_mode=_get_profiled_env_bool("DATA_CONSISTENCY_STRICT", False, profile),
+        min_query_length=_get_profiled_env_int("DATA_CONSISTENCY_MIN_QUERY_LENGTH", 3, profile),
+        min_embedding_dim=_get_profiled_env_int("DATA_CONSISTENCY_MIN_EMBEDDING_DIM", 10, profile),
+    )
+    
     ## Resolve optional secrets
     secrets = SecretsConfig(
         google_application_credentials=_read_secret_value(
@@ -823,6 +858,7 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         app_name=_get_env("APP_NAME", DEFAULT_APP_NAME), app_version=_get_env("APP_VERSION", DEFAULT_APP_VERSION),
         execution=execution, paths=paths, runtime=runtime, drive=drive, ocr=ocr, gcp=gcp,
         retrieval=retrieval, secrets=secrets,
+        data_consistency=data_consistency,        
     )
 
     ## Validate final configuration
