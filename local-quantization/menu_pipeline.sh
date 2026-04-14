@@ -6,10 +6,10 @@
 # Version: 1.0.0
 # Description:
 #   CLI menu to run the local quantization pipelines:
-#   - quantization
-#   - export
-#   - benchmarking
-#   - full pipeline
+#   - quantization (with data consistency)
+#   - export (with data consistency)
+#   - benchmarking (with data consistency)
+#   - full pipeline (with data consistency)
 ###############################################################################
 
 set -euo pipefail
@@ -49,10 +49,10 @@ export_pipeline_mode() {
 while true; do
   echo ""
   echo "Select an action:"
-  echo " 1) Quantize model"
-  echo " 2) Export quantized artifacts"
-  echo " 3) Benchmark quantized model"
-  echo " 4) Run full pipeline (quantize + export + benchmark)"
+  echo " 1) Quantize model (with data consistency)"
+  echo " 2) Export quantized artifacts (with data consistency)"
+  echo " 3) Benchmark quantized model (with data consistency)"
+  echo " 4) Run full pipeline (quantize + export + benchmark) (with data consistency)"
   echo " 0) Exit"
   echo ""
 

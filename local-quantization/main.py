@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.config.settings import build_pipeline_config
+from src.core.data_consistency import run_data_consistency
 from src.core.errors import LocalQuantizationError
 from src.pipeline import run_pipeline
 from src.utils.logging_utils import get_logger
@@ -192,6 +193,24 @@ def main() -> int:
             return code
 
         config = build_pipeline_config()
+        
+        ## ============================================================
+        ## DATA CONSISTENCY CHECK
+        ## ============================================================
+        consistency_result = run_data_consistency(
+            data={
+                "text": "quantization_run",
+                "model_name": config.model.model_name_or_path,
+                "bits": config.quantization.bits,
+            },
+            strict=True,
+        )
+
+        LOGGER.info(f"Consistency OK: {consistency_result['is_consistent']}")
+
+        if not consistency_result["is_consistent"]:
+            raise LocalQuantizationError("Data consistency failed before pipeline")
+            
         run_pipeline(config)
 
         LOGGER.info("Pipeline completed successfully")
