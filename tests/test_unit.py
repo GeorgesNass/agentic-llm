@@ -18,6 +18,7 @@ import pytest
 ## ============================================================
 ## IMPORTS UNDER TEST
 ## ============================================================
+from src.core.data_consistency import run_data_consistency
 from src.utils.costing_utils import (
     ScanStats,
     cost_usd_for_chat,
@@ -496,3 +497,79 @@ def test_scan_folder_txt_inputs_invalid_mode(tmp_path: Path) -> None:
             chunk_size=1000,
             chunk_overlap=200,
         )
+
+## ============================================================
+## DATA CONSISTENCY TESTS (LLM GATEWAY)
+## ============================================================
+def test_data_consistency_valid_prompt() -> None:
+    """
+        Validate correct prompt payload
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt": "hello world",
+        "model": "gpt-4o-mini",
+        "max_tokens": 100,
+        "temperature": 0.5,
+        "top_p": 1.0,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is True
+
+def test_data_consistency_missing_model() -> None:
+    """
+        Detect missing model
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt": "hello",
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_messages() -> None:
+    """
+        Detect invalid messages structure
+
+        Returns:
+            None
+    """
+
+    data = {
+        "messages": "not_a_list",
+        "model": "gpt-4o-mini",
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_params() -> None:
+    """
+        Detect invalid parameters
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt": "test",
+        "model": "gpt-4o-mini",
+        "max_tokens": -1,
+        "temperature": 5,
+        "top_p": 2,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False

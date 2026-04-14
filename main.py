@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import uvicorn
 
+from src.core.data_consistency import run_data_consistency
 from src.core.config import settings
 from src.core.errors import (
     ConfigurationError,
@@ -353,6 +354,38 @@ def main() -> int:
         providers = _parse_providers(str(args.providers))
         requested_model = _resolve_requested_model(args.model)
 
+        messages = None
+        if str(args.messages_json).strip():
+            messages = _load_messages(str(args.messages_json).strip())
+            
+        ## ============================================================
+        ## DATA CONSISTENCY CHECK (LLM REQUEST)
+        ## ============================================================
+        if settings.data_consistency.enabled:
+            consistency_result = run_data_consistency(
+                data={
+                    "prompt": args.text if args.text else None,
+                    "messages": messages,
+                    "model": requested_model or providers[0],
+                    "max_tokens": args.expected_output_tokens,
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                },
+                strict=settings.data_consistency.strict_mode,
+            )
+
+            LOGGER.info(f"Consistency OK: {consistency_result['is_consistent']}")
+
+            if not consistency_result["is_consistent"] and settings.data_consistency.strict_mode:
+                raise DataError(
+                    message="Data consistency failed before LLM request",
+                    error_code="data_consistency_error",
+                    details={"issues": consistency_result["issues"]},
+                    origin="main",
+                    http_status=400,
+                    is_retryable=False,
+                )
+                
         ## Load catalogs once for CLI usage
         models_catalog, pricing_catalog = _load_catalogs_for_cli(
             models_catalog_path=args.models_catalog,
