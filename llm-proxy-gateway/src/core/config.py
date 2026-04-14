@@ -217,6 +217,51 @@ class SecretsConfig:
     mlflow_tracking_password: str
 
 @dataclass(frozen=True)
+class ClusteringConfig:
+    """
+        Clustering configuration
+
+        Args:
+            default_algorithm: Default clustering algorithm
+            default_n_clusters: Default number of clusters
+            use_pca: Enable PCA before clustering
+            pca_components: Number of PCA components
+            scale_features: Scale features before clustering
+
+        Returns:
+            None
+    """
+
+    default_algorithm: str
+    default_n_clusters: int
+    use_pca: bool
+    pca_components: int
+    scale_features: bool
+
+
+@dataclass(frozen=True)
+class DataConsistencyConfig:
+    """
+        Data consistency configuration
+
+        Args:
+            enabled: Enable consistency checks
+            strict_mode: Raise error if inconsistency
+            max_prompt_length: Maximum allowed prompt length
+            max_messages: Maximum number of messages
+            max_tokens_limit: Maximum allowed tokens
+
+        Returns:
+            None
+    """
+
+    enabled: bool
+    strict_mode: bool
+    max_prompt_length: int
+    max_messages: int
+    max_tokens_limit: int
+        
+@dataclass(frozen=True)
 class AppConfig:
     """
         Global application configuration for LLM proxy gateway
@@ -237,6 +282,7 @@ class AppConfig:
             catalogs: Catalog file configuration
             paths: Filesystem paths configuration
             secrets: Secret values
+            data_consistency: DataConsistencyConfig
     """
 
     app_name: str
@@ -254,7 +300,8 @@ class AppConfig:
     catalogs: CatalogsConfig
     paths: PathsConfig
     secrets: SecretsConfig
-
+    data_consistency: DataConsistencyConfig
+    
 ## ============================================================
 ## DOTENV / ENV HELPERS
 ## ============================================================
@@ -728,6 +775,24 @@ def _validate_config(config: AppConfig) -> None:
     _validate_positive_int(config.runtime.batch_size, "BATCH_SIZE")
     _validate_non_negative_float(config.runtime.batch_sleep_seconds, "BATCH_SLEEP_SECONDS")
 
+    ## Validate data consistency config
+    if config.data_consistency.enabled:
+
+        _validate_positive_int(
+            config.data_consistency.max_prompt_length,
+            "DATA_CONSISTENCY_MAX_PROMPT_LENGTH",
+        )
+
+        _validate_positive_int(
+            config.data_consistency.max_messages,
+            "DATA_CONSISTENCY_MAX_MESSAGES",
+        )
+
+        _validate_positive_int(
+            config.data_consistency.max_tokens_limit,
+            "DATA_CONSISTENCY_MAX_TOKENS",
+        )
+        
     ## Validate clustering numeric parameters
     _validate_positive_int(config.clustering.default_n_clusters, "DEFAULT_N_CLUSTERS")
     _validate_positive_int(config.clustering.pca_components, "PCA_COMPONENTS")
@@ -898,6 +963,15 @@ def get_config() -> AppConfig:
         scale_features=_get_profiled_env_bool("SCALE_FEATURES", True, profile),
     )
 
+    ## Build data consistency config
+    data_consistency = DataConsistencyConfig(
+        enabled=_get_env_bool("DATA_CONSISTENCY_ENABLED", True),
+        strict_mode=_get_env_bool("DATA_CONSISTENCY_STRICT", False),
+        max_prompt_length=_get_env_int("DATA_CONSISTENCY_MAX_PROMPT_LENGTH", 5000),
+        max_messages=_get_env_int("DATA_CONSISTENCY_MAX_MESSAGES", 50),
+        max_tokens_limit=_get_env_int("DATA_CONSISTENCY_MAX_TOKENS", 4096),
+    )
+    
     ## Resolve optional secrets from direct env or files
     ## LOAD LLM + MLFLOW SECRETS
 
@@ -937,6 +1011,7 @@ def get_config() -> AppConfig:
         runtime=runtime,
         clustering=clustering,
         secrets=secrets,
+        data_consistency=data_consistency,        
     )
 
     ## Validate final configuration
