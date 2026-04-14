@@ -16,6 +16,7 @@ import os
 import pytest
 import csv
 
+from src.core.data_consistency import run_data_consistency
 from src.core.metrics import (
     confusion_matrix,
     exact_match,
@@ -471,3 +472,73 @@ def test_profile_default_loads_settings() -> None:
 
     assert settings is not None
     assert hasattr(settings, "training")
+    
+## ============================================================
+## DATA CONSISTENCY TESTS (FINETUNING)
+## ============================================================
+def test_data_consistency_valid_finetuning():
+    """
+        Validate correct finetuning payload
+    """
+
+    data = {
+        "text": "symptome patient",
+        "model_name": "mistral",
+        "dataset": [
+            {"text": "a", "label": "x"},
+            {"text": "b", "label": "y"},
+        ],
+        "batch_size": 2,
+        "epochs": 3,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is True
+
+def test_data_consistency_empty_dataset():
+    """
+        Detect empty dataset
+    """
+
+    data = {
+        "text": "test",
+        "model_name": "mistral",
+        "dataset": [],
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_missing_label():
+    """
+        Detect dataset without labels
+    """
+
+    data = {
+        "text": "test",
+        "model_name": "mistral",
+        "dataset": [{"text": "a"}],
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_training_params():
+    """
+        Detect invalid training parameters
+    """
+
+    data = {
+        "text": "test",
+        "model_name": "mistral",
+        "dataset": [{"text": "a", "label": "x"}],
+        "batch_size": -1,
+        "epochs": 0,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False

@@ -256,6 +256,23 @@ class EvaluationConfig:
     reject_token: str
 
 @dataclass(frozen=True)
+class DataConsistencyConfig:
+    """
+        Data consistency configuration
+
+        Args:
+            enabled: Enable consistency checks
+            strict_mode: Raise error if inconsistency
+            min_text_length: Minimum text length
+            min_dataset_size: Minimum dataset size
+    """
+
+    enabled: bool
+    strict_mode: bool
+    min_text_length: int
+    min_dataset_size: int
+    
+@dataclass(frozen=True)
 class SecretsConfig:
     """
         Secret values resolved from env or files
@@ -296,6 +313,7 @@ class AppConfig:
     training: TrainingConfig
     evaluation: EvaluationConfig
     secrets: SecretsConfig
+    data_consistency: DataConsistencyConfig
 
 ## ============================================================
 ## DOTENV / ENV HELPERS
@@ -698,6 +716,17 @@ def _validate_config(config: AppConfig) -> None:
     if abs(total - 1.0) > 1e-6:
         raise ConfigurationError(f"TRAIN_RATIO + VAL_RATIO + TEST_RATIO must sum to 1.0. Got: {total}")
 
+    ## Skip validation if disabled
+    if not config.data_consistency.enabled:
+        return
+        
+    ## Validate data consistency config
+    _validate_positive_int(config.data_consistency.min_text_length, "DATA_CONSISTENCY_MIN_TEXT_LENGTH")
+    _validate_positive_int(config.data_consistency.min_dataset_size, "DATA_CONSISTENCY_MIN_DATASET_SIZE")
+    
+    if config.data_consistency.strict_mode and not config.data_consistency.enabled:
+        raise ConfigurationError("DATA_CONSISTENCY_STRICT requires DATA_CONSISTENCY_ENABLED=True")
+        
     ## Validate training parameters
     _validate_positive_int(config.training.num_train_epochs, "NUM_TRAIN_EPOCHS")
     _validate_positive_int(config.training.batch_size, "BATCH_SIZE")
@@ -876,6 +905,14 @@ def get_config() -> AppConfig:
         reject_token=_get_env("REJECT_TOKEN", DEFAULT_REJECT_TOKEN),
     )
 
+    ## Build data consistency config
+    data_consistency = DataConsistencyConfig(
+        enabled=_get_env_bool("DATA_CONSISTENCY_ENABLED", True),
+        strict_mode=_get_env_bool("DATA_CONSISTENCY_STRICT", False),
+        min_text_length=_get_env_int("DATA_CONSISTENCY_MIN_TEXT_LENGTH", 3),
+        min_dataset_size=_get_env_int("DATA_CONSISTENCY_MIN_DATASET_SIZE", 2),
+    )
+    
     ## Resolve optional secrets Load JSON secrets
     secrets_path = _get_env_path("APP_SECRETS_FILE", "", project_root)
 
@@ -892,6 +929,7 @@ def get_config() -> AppConfig:
         app_name=_get_env("APP_NAME", DEFAULT_APP_NAME), app_version=_get_env("APP_VERSION", DEFAULT_APP_VERSION),
         execution=execution, paths=paths, runtime=runtime, data=data, training=training,
         evaluation=evaluation, secrets=secrets,
+        data_consistency=data_consistency,        
     )
 
     ## Validate final configuration
