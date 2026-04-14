@@ -7,6 +7,7 @@ __desc__ = "Minimal unit tests for rag-drive-gcp core components."
 
 import numpy as np
 
+from src.core.data_consistency import run_data_consistency
 from src.core.rag import Chunk, RAGIndex, chunk_text, retrieve_top_k
 from src.io.gcs import build_gcs_object_path
 from src.model.settings import get_settings
@@ -111,3 +112,64 @@ def test_retrieve_top_k_empty_index():
     )
 
     assert results == []
+    
+## ============================================================
+## DATA CONSISTENCY TESTS (RAG)
+## ============================================================
+def test_data_consistency_valid_rag():
+    """
+        Validate correct RAG payload
+    """
+
+    data = {
+        "query": "hypertension",
+        "chunks": ["text 1", "text 2"],
+        "embeddings": [0.1] * 128,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is True
+    assert result["errors"] == 0
+
+def test_data_consistency_empty_query():
+    """
+        Detect empty query
+    """
+
+    data = {
+        "query": "",
+        "embeddings": [0.1] * 128,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_chunks():
+    """
+        Detect invalid chunks structure
+    """
+
+    data = {
+        "query": "test",
+        "chunks": "not_a_list",
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_embeddings():
+    """
+        Detect invalid embeddings
+    """
+
+    data = {
+        "query": "test",
+        "embeddings": ["bad", "data"],
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
