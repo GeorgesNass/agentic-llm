@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from src.config.settings import build_pipeline_config
+from src.core.data_consistency import run_data_consistency
 from src.core.errors import (
     ConfigurationError,
     DataError,
@@ -262,3 +263,63 @@ def test_build_pipeline_config_invalid_mode(
 
     with pytest.raises(Exception):
         build_pipeline_config()
+        
+## ============================================================
+## DATA CONSISTENCY TESTS (LOCAL QUANTIZATION)
+## ============================================================
+def test_data_consistency_valid_quantization():
+    """
+        Validate correct quantization payload
+    """
+
+    data = {
+        "text": "hello world",
+        "model_name": "mistral",
+        "bits": 4,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is True
+
+def test_data_consistency_invalid_bits():
+    """
+        Detect invalid quantization bits
+    """
+
+    data = {
+        "text": "hello",
+        "model_name": "mistral",
+        "bits": 5,
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_empty_text():
+    """
+        Detect empty text
+    """
+
+    data = {
+        "text": "",
+        "model_name": "mistral",
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_missing_model():
+    """
+        Detect missing model_name
+    """
+
+    data = {
+        "text": "hello",
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False

@@ -243,6 +243,23 @@ class BenchmarkConfig:
     deterministic: bool
 
 @dataclass(frozen=True)
+class DataConsistencyConfig:
+    """
+        Data consistency configuration
+
+        Args:
+            enabled: Enable consistency checks
+            strict_mode: Raise error if inconsistency
+            min_text_length: Minimum text length
+            allowed_bits: Allowed quantization bits
+    """
+
+    enabled: bool
+    strict_mode: bool
+    min_text_length: int
+    allowed_bits: list[int]
+    
+@dataclass(frozen=True)
 class SecretsConfig:
     """
         Secret values resolved from env or files
@@ -279,7 +296,8 @@ class AppConfig:
     quantization: QuantizationConfig
     benchmark: BenchmarkConfig
     secrets: SecretsConfig
-
+    data_consistency: DataConsistencyConfig
+    
 ## ============================================================
 ## DOTENV / ENV HELPERS
 ## ============================================================
@@ -659,9 +677,19 @@ def _validate_config(config: AppConfig) -> None:
     ## Validate quantization parameters
     _validate_positive_int(config.quantization.quant_bits, "QUANT_BITS")
     _validate_positive_int(config.quantization.group_size, "GROUP_SIZE")
-    if config.quantization.quant_bits not in {2, 3, 4, 8, 16}:
-        raise ConfigurationError(f"QUANT_BITS must be one of 2, 3, 4, 8, 16. Got: {config.quantization.quant_bits}")
 
+    ## Validate allowed bits consistency
+    if config.quantization.quant_bits not in config.data_consistency.allowed_bits:
+        raise ConfigurationError(
+            f"QUANT_BITS {config.quantization.quant_bits} not allowed by DATA_CONSISTENCY_ALLOWED_BITS"
+        )
+        
+    ## Validate data consistency config
+    _validate_positive_int(config.data_consistency.min_text_length, "DATA_CONSISTENCY_MIN_TEXT_LENGTH")
+
+    if config.data_consistency.strict_mode and not config.data_consistency.enabled:
+        raise ConfigurationError("DATA_CONSISTENCY_STRICT requires DATA_CONSISTENCY_ENABLED=True")
+        
     ## Validate backend-specific constraints
     if config.quantization.backend == "bitsandbytes" and config.quantization.quant_bits not in {4, 8}:
         raise ConfigurationError("bitsandbytes backend only supports QUANT_BITS in {4, 8}")
@@ -677,6 +705,7 @@ def _validate_config(config: AppConfig) -> None:
     ## Validate optional adapter path
     if config.quantization.adapter_path is not None and not config.quantization.adapter_path.exists():
         raise ConfigurationError(f"ADAPTER_PATH does not exist: {config.quantization.adapter_path}")
+
 
 ## ============================================================
 ## EXPORT HELPERS
@@ -833,6 +862,14 @@ def get_config() -> AppConfig:
         deterministic=_get_env_bool("DETERMINISTIC", True),
     )
 
+    ## Build data consistency config
+    data_consistency = DataConsistencyConfig(
+        enabled=_get_env_bool("DATA_CONSISTENCY_ENABLED", True),
+        strict_mode=_get_env_bool("DATA_CONSISTENCY_STRICT", False),
+        min_text_length=_get_env_int("DATA_CONSISTENCY_MIN_TEXT_LENGTH", 3),
+        allowed_bits=[int(x) for x in _get_env("DATA_CONSISTENCY_ALLOWED_BITS", "2,3,4,8").split(",")],
+    )
+    
     ## Resolve optional secrets Load JSON secrets
     secrets_path = _get_env_path("APP_SECRETS_FILE", "", project_root)
 
@@ -848,6 +885,7 @@ def get_config() -> AppConfig:
         app_name=_get_env("APP_NAME", DEFAULT_APP_NAME), app_version=_get_env("APP_VERSION", DEFAULT_APP_VERSION),
         execution=execution, paths=paths, runtime=runtime, quantization=quantization,
         benchmark=benchmark, secrets=secrets,
+        data_consistency=data_consistency,
     )
 
     ## Validate final configuration
