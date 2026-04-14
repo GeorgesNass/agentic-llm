@@ -5,7 +5,7 @@
 # Author: Georges Nassopoulos
 # Version: 1.0.0
 # Description:
-#   CLI menu to run autonomous-ai-platform workflows:
+#   CLI menu to run autonomous-ai-platform workflows (with data consistency):
 #   - ingest documents (folder scan -> chunk -> embeddings -> vector store)
 #   - run chat (auto/local/api) with optional RAG + Text-to-SQL
 #   - run autonomous loop (agentic planning/execution/self-correction)
@@ -45,12 +45,12 @@ run_streamlit() {
 while true; do
   echo ""
   echo "Select an action:"
-  echo " 1) Ingest docs -> Vector Store (RAG build)"
-  echo " 2) Chat (auto/local/api) + optional RAG + optional Text-to-SQL"
-  echo " 3) Autonomous loop (agentic) + optional exports"
-  echo " 4) Evaluate (offline metrics + optional LLM judge)"
-  echo " 5) Run MCP server (FastAPI)"
-  echo " 6) Run Streamlit UI"
+  echo " 1) Ingest docs -> Vector Store (RAG build) (with data consistency)"
+  echo " 2) Chat (auto/local/api) + optional RAG + optional Text-to-SQL (with data consistency)"
+  echo " 3) Autonomous loop (agentic) + optional exports (with data consistency)"
+  echo " 4) Evaluate (offline metrics + optional LLM judge) (with data consistency)"
+  echo " 5) Run MCP server (FastAPI) (with data consistency)"
+  echo " 6) Run Streamlit UI (with data consistency)"
   echo " 0) Exit"
   echo ""
 

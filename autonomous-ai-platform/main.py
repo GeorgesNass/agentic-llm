@@ -15,6 +15,7 @@ import sys
 import time
 from typing import Optional
 
+from src.core.data_consistency import run_data_consistency
 from src.core.errors import AutonomousAIPlatformError
 from src.pipeline import run_chat, run_evaluation, run_loop, pipeline_module
 from src.utils.logging_utils import get_logger
@@ -331,6 +332,29 @@ def _run_cli() -> int:
 
         logger.info("CLI runtime resolved | %s", _safe_json(runtime_details))
 
+        ## ============================================================
+        ## DATA CONSISTENCY CHECK (AUTONOMOUS PIPELINE)
+        ## ============================================================
+        consistency_result = run_data_consistency(
+            data={
+                "tasks": [
+                    {
+                        "id": "task_1",
+                        "agent": "default",
+                        "prompt": str(args.chat or args.loop or args.query or ""),
+                        "depends_on": [],
+                    }
+                ],
+                "agents": {
+                    "default": {
+                        "model": "default-model"
+                    }
+                },
+            },
+            strict=False,
+        )
+
+        logger.info("Consistency OK | %s", consistency_result["is_consistent"])
         ## RUN FULL PIPELINE
         if bool(args.run_all):
             if bool(args.dry_run):
