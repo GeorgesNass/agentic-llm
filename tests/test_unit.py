@@ -22,8 +22,8 @@ from src.utils.env_utils import _get_env_bool
 from src.utils.validation_utils import _must_be_non_empty, _require_int
 from src.utils.sqlite_manager import SqliteManager
 
-from src.core.errors import ValidationError
-from src.core.errors import LlmProviderError
+from src.core.data_consistency import run_data_consistency
+from src.core.errors import ValidationError, LlmProviderError
 import src.core.mcp_server as mcp
 
 from src.llm.api_clients import chat_completion_openai_compatible
@@ -737,3 +737,97 @@ def test_mcp_server_app_exists() -> None:
         pytest.skip("FastAPI app not found in src.core.mcp_server")
     
     assert app is not None
+    
+## ============================================================
+## DATA CONSISTENCY (AUTONOMOUS)
+## ============================================================
+def test_data_consistency_valid() -> None:
+    """
+        Validate correct autonomous payload
+
+        Returns:
+            None
+    """
+
+    data = {
+        "tasks": [
+            {
+                "id": "t1",
+                "agent": "a1",
+                "prompt": "hello",
+                "depends_on": [],
+            }
+        ],
+        "agents": {
+            "a1": {
+                "model": "test-model"
+            }
+        },
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is True
+
+def test_data_consistency_missing_tasks() -> None:
+    """
+        Detect missing tasks
+
+        Returns:
+            None
+    """
+
+    data = {
+        "agents": {
+            "a1": {"model": "test"}
+        }
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_task_format() -> None:
+    """
+        Detect invalid task structure
+
+        Returns:
+            None
+    """
+
+    data = {
+        "tasks": ["invalid"],
+        "agents": {
+            "a1": {"model": "test"}
+        },
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False
+
+def test_data_consistency_invalid_dependency() -> None:
+    """
+        Detect invalid dependency
+
+        Returns:
+            None
+    """
+
+    data = {
+        "tasks": [
+            {
+                "id": "t1",
+                "agent": "a1",
+                "prompt": "hello",
+                "depends_on": ["unknown"],
+            }
+        ],
+        "agents": {
+            "a1": {"model": "test"}
+        },
+    }
+
+    result = run_data_consistency(data=data)
+
+    assert result["is_consistent"] is False

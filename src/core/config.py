@@ -31,7 +31,6 @@ PLACEHOLDER_PREFIXES: Tuple[str, ...] = ("<YOUR_", "YOUR_", "CHANGE_ME", "REPLAC
 ## ============================================================
 ## FAILSAFE DEFAULT VALUES (NON-SENSITIVE)
 ## ============================================================
-
 local_model_path = _get_env_str("LOCAL_MODEL_PATH", "path/to/local/model.gguf")
 hf_model_id = _get_env_str("HF_MODEL_ID", "repo/model-name")
 hf_model_filename = _get_env_str("HF_MODEL_FILENAME", "model.gguf")
@@ -164,6 +163,26 @@ class RagConfig:
     supported_extensions: list[str]
 
 @dataclass(frozen=True)
+class DataConsistencyConfig:
+    """
+        Data consistency configuration
+
+        Args:
+            enabled: Enable consistency checks
+            strict_mode: Raise error if inconsistency
+            max_tasks: Maximum number of tasks
+            max_dependencies: Maximum dependencies per task
+
+        Returns:
+            None
+    """
+
+    enabled: bool
+    strict_mode: bool
+    max_tasks: int
+    max_dependencies: int
+    
+@dataclass(frozen=True)
 class PathsConfig:
     """
         Filesystem paths configuration
@@ -232,6 +251,7 @@ class AppConfig:
             rag: Retrieval configuration
             paths: Filesystem paths configuration
             api_keys: API keys configuration
+            data_consistency: Data consistency configuration
     """
 
     app_name: str
@@ -241,7 +261,8 @@ class AppConfig:
     rag: RagConfig
     paths: PathsConfig
     api_keys: ApiKeysConfig
-
+    data_consistency: DataConsistencyConfig
+    
 ## ============================================================
 ## DOTENV / ENV HELPERS
 ## ============================================================
@@ -724,6 +745,19 @@ def _validate_config(config_obj: AppConfig) -> None:
     ## Validate runtime provider
     _validate_provider(config_obj.runtime.provider_default, "PROVIDER_DEFAULT")
 
+    ## Validate data consistency config
+    if config_obj.data_consistency.enabled:
+
+        _validate_positive_int(
+            config_obj.data_consistency.max_tasks,
+            "DATA_CONSISTENCY_MAX_TASKS",
+        )
+
+        _validate_positive_int(
+            config_obj.data_consistency.max_dependencies,
+            "DATA_CONSISTENCY_MAX_DEPENDENCIES",
+        )
+        
     ## Validate retrieval integers
     _validate_positive_int(config_obj.rag.top_k, "TOP_K")
     _validate_positive_int(config_obj.rag.chunk_size, "CHUNK_SIZE")
@@ -864,6 +898,14 @@ def get_config() -> AppConfig:
         supported_extensions=_get_env_list("SUPPORTED_EXTENSIONS", list(SUPPORTED_INPUT_EXTENSIONS)),
     )
 
+    ## Build data consistency config
+    data_consistency = DataConsistencyConfig(
+        enabled=_get_env_bool("DATA_CONSISTENCY_ENABLED", True),
+        strict_mode=_get_env_bool("DATA_CONSISTENCY_STRICT", False),
+        max_tasks=_get_env_int("DATA_CONSISTENCY_MAX_TASKS", 50),
+        max_dependencies=_get_env_int("DATA_CONSISTENCY_MAX_DEPENDENCIES", 10),
+    )
+    
     ## Resolve runtime paths
     paths = PathsConfig(
         root_dir=root_dir,
@@ -925,6 +967,7 @@ def get_config() -> AppConfig:
         rag=rag,
         paths=paths,
         api_keys=api_keys,
+        data_consistency=data_consistency,     
     )
 
     ## Validate final configuration
