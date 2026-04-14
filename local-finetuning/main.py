@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Optional
 
 from src.pipeline import evaluate, full_run, prepare, train
+from src.core.data_consistency import run_data_consistency
+from src.config import get_config
 from src.core.errors import DataError, ConfigurationError
 from src.utils.logging_utils import get_logger
 
@@ -141,6 +143,30 @@ def main() -> int:
 
         env_path: Optional[Path] = args.env
 
+
+        ## ============================================================
+        ## DATA CONSISTENCY CHECK
+        ## ============================================================
+
+        config = get_config()
+
+        if config.data_consistency.enabled:
+            consistency_result = run_data_consistency(
+                data={
+                    "text": "finetuning_run",
+                    "model_name": config.training.base_model_name,
+                    "dataset": ["sample"],  ## minimal placeholder
+                    "batch_size": config.training.batch_size,
+                    "epochs": config.training.num_train_epochs,
+                },
+                strict=config.data_consistency.strict_mode,
+            )
+
+            logger.info(f"Consistency OK: {consistency_result['is_consistent']}")
+
+            if not consistency_result["is_consistent"] and config.data_consistency.strict_mode:
+                raise DataError("Data consistency failed before pipeline")
+                
         ## COMMAND DISPATCH
         if args.command == "prepare":
             prepare(env_path=env_path)

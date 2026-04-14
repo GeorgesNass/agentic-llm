@@ -6,10 +6,10 @@
 # Version: 1.0.0
 # Description:
 #   CLI menu to run the local fine-tuning pipelines:
-#   - dataset preparation
-#   - LoRA SFT training
-#   - evaluation
-#   - full pipeline
+#   - dataset preparation (with data consistency)
+#   - LoRA SFT training (with data consistency)
+#   - evaluation (with data consistency)
+#   - full pipeline (with data consistency)
 ###############################################################################
 
 set -euo pipefail
@@ -44,10 +44,10 @@ run_python() {
 while true; do
   echo ""
   echo "Select an action:"
-  echo " 1) Prepare dataset"
-  echo " 2) Train model (LoRA SFT)"
-  echo " 3) Evaluate model"
-  echo " 4) Run full pipeline (prepare + train + evaluate)"
+  echo " 1) Prepare dataset (with data consistency)"
+  echo " 2) Train model (LoRA SFT) (with data consistency)"
+  echo " 3) Evaluate model (with data consistency)"
+  echo " 4) Run full pipeline (prepare + train + evaluate) (with data consistency)"
   echo " 0) Exit"
   echo ""
 
