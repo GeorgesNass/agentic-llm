@@ -10,9 +10,11 @@ __desc__ = "Training workflow: LoRA SFT with HuggingFace Transformers + PEFT (GP
 from __future__ import annotations
 
 import json
+import numpy as np
 from pathlib import Path
 from typing import Any, Dict, List
 
+from src.core.data_quality import run_data_quality
 from src.utils.io_utils import read_jsonl
 from src.utils.utils import detect_device, ensure_dir
 from datasets import Dataset
@@ -154,6 +156,20 @@ def run_training(
     train_ds = Dataset.from_list(_build_text_dataset(train_records))
     val_ds = Dataset.from_list(_build_text_dataset(val_records))
 
+    ## DATA QUALITY CHECK (DATASET) : check raw records size / structure
+    flat_lengths = [len(str(r.get("instruction", ""))) for r in train_records]
+
+    quality_result = run_data_quality(
+        data=flat_lengths,
+        method="zscore",
+        strict=False,
+    )
+
+    logger.info(f"Dataset quality score: {quality_result['score']}")
+
+    if quality_result["errors"] > 0:
+        raise ValueError("Dataset quality failed before training")
+        
     ## Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(base_model_name, use_fast=True)
     if tokenizer.pad_token is None:
@@ -194,6 +210,28 @@ def run_training(
 
     model = AutoModelForCausalLM.from_pretrained(base_model_name, **model_kwargs)
 
+    ## DATA QUALITY CHECK (MODEL WEIGHTS)
+    try:
+        sample_weights = []
+
+        ## extract small sample of weights
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                sample_weights.extend(param.detach().cpu().numpy().flatten()[:100])
+                if len(sample_weights) > 1000:
+                    break
+
+        quality_result = run_data_quality(
+            data=np.array(sample_weights),
+            method="zscore",
+            strict=False,
+        )
+
+        logger.info(f"Model weights quality score: {quality_result['score']}")
+
+    except Exception:
+        logger.warning("Skipping model weight quality check")
+        
     if quantization_4bit:
         model = prepare_model_for_kbit_training(model)
 
@@ -242,6 +280,27 @@ def run_training(
 
     logger.info("Starting training")
     trainer.train()
+    
+    ## DATA QUALITY CHECK (POST-TRAIN)
+    try:
+        losses = []
+
+        for log in trainer.state.log_history:
+            if "loss" in log:
+                losses.append(log["loss"])
+
+        if losses:
+            quality_result = run_data_quality(
+                data=np.array(losses),
+                method="iqr",
+                strict=False,
+            )
+
+            logger.info(f"Training loss quality score: {quality_result['score']}")
+
+    except Exception:
+        logger.warning("Skipping loss quality check")
+        
     logger.info("Training completed")
 
     ## Export adapter
