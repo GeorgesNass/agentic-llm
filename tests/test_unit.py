@@ -18,6 +18,7 @@ import pytest
 ## ============================================================
 ## IMPORTS UNDER TEST
 ## ============================================================
+from src.core.data_quality import run_data_quality
 from src.core.data_consistency import run_data_consistency
 from src.utils.costing_utils import (
     ScanStats,
@@ -573,3 +574,75 @@ def test_data_consistency_invalid_params() -> None:
     result = run_data_consistency(data=data)
 
     assert result["is_consistent"] is False
+    
+## ============================================================
+## DATA QUALITY TESTS (LLM GATEWAY)
+## ============================================================
+def test_data_quality_valid() -> None:
+    """
+        Validate normal LLM payload metrics
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": 100,
+        "messages_count": 2,
+        "max_tokens": 256,
+    }
+
+    result = run_data_quality(data=data)
+
+    assert result["is_valid"] is True
+    assert result["errors"] == 0
+
+def test_data_quality_outlier() -> None:
+    """
+        Detect abnormal LLM request metrics
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": 1000000,
+        "messages_count": 5000,
+        "max_tokens": 100000,
+    }
+
+    result = run_data_quality(data=data)
+
+    assert result["warnings"] > 0
+
+def test_data_quality_invalid() -> None:
+    """
+        Detect invalid values
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": float("nan"),
+        "messages_count": 1,
+    }
+
+    result = run_data_quality(data=data)
+
+    assert result["errors"] > 0
+
+def test_data_quality_strict() -> None:
+    """
+        Strict mode should raise error
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": float("nan"),
+    }
+
+    with pytest.raises(Exception):
+        run_data_quality(data=data, strict=True)
