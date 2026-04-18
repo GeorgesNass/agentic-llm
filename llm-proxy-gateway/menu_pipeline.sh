@@ -5,7 +5,7 @@
 # Author: Georges Nassopoulos
 # Version: 1.0.0
 # Description:
-#   Interactive CLI to run (with data consistency):
+#   Interactive CLI to run (with data consistency + data quality):
 #   - Cost simulation (chat or embeddings)
 #   - Direct chat completion
 #   - Embeddings generation
@@ -46,9 +46,9 @@ run_python() {
 while true; do
   echo ""
   echo "Select an action:"
-  echo " 1) Simulate cost (chat) (with data consistency)"
-  echo " 2) Simulate cost (embeddings) (with data consistency)"
-  echo " 3) Run API (uvicorn) (with data consistency)"
+  echo " 1) Simulate cost (chat) (with data consistency + data quality)"
+  echo " 2) Simulate cost (embeddings) (with data consistency + data quality)"
+  echo " 3) Run API (uvicorn) (with data consistency + data quality)"
   echo " 4) Run tests (pytest)"
   echo " 0) Exit"
   echo ""

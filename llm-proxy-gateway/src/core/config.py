@@ -114,6 +114,11 @@ class RuntimeConfig:
             max_concurrency: Maximum concurrent tasks
             batch_sleep_seconds: Sleep delay between batches
             allowed_origins: Allowed origins for future API usage
+            anomaly_detection_enabled: Enable anomaly detection
+            anomaly_method: Detection method (zscore / iqr)
+            z_threshold: Z-score threshold
+            iqr_multiplier: IQR multiplier
+            anomaly_strict_mode: Strict validation mode            
     """
 
     environment: str
@@ -127,7 +132,12 @@ class RuntimeConfig:
     max_concurrency: int
     batch_sleep_seconds: float
     allowed_origins: list[str]
-
+    anomaly_detection_enabled: bool
+    anomaly_method: str
+    z_threshold: float
+    iqr_multiplier: float
+    anomaly_strict_mode: bool
+    
 @dataclass(frozen=True)
 class ProvidersConfig:
     """
@@ -801,6 +811,16 @@ def _validate_config(config: AppConfig) -> None:
     if config.mlflow.enabled and not config.mlflow.tracking_uri:
         raise ConfigurationError("MLFLOW_TRACKING_URI cannot be empty when MLflow is enabled")
 
+    ## validate anomaly detection config
+    if config.runtime.z_threshold <= 0:
+        raise ConfigurationError("Z_THRESHOLD must be > 0")
+
+    if config.runtime.iqr_multiplier <= 0:
+        raise ConfigurationError("IQR_MULTIPLIER must be > 0")
+
+    if config.runtime.anomaly_method not in {"zscore", "iqr"}:
+        raise ConfigurationError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
+
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -952,6 +972,11 @@ def get_config() -> AppConfig:
         batch_size=_get_profiled_env_int("BATCH_SIZE", 32, profile),
         batch_sleep_seconds=_get_profiled_env_float("BATCH_SLEEP_SECONDS", 0.0, profile),
         allowed_origins=_get_env_list("ALLOWED_ORIGINS", ["*"]),
+        anomaly_detection_enabled=_get_env_bool("ANOMALY_DETECTION_ENABLED", True),
+        anomaly_method=_get_env("ANOMALY_METHOD", "zscore"),
+        z_threshold=_get_env_float("Z_THRESHOLD", 3.0),
+        iqr_multiplier=_get_env_float("IQR_MULTIPLIER", 1.5),
+        anomaly_strict_mode=_get_env_bool("ANOMALY_STRICT_MODE", False),        
     )
 
     ## Build clustering configuration
