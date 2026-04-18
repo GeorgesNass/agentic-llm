@@ -122,6 +122,11 @@ class RuntimeConfig:
             temperature: Default generation temperature
             max_tokens: Default generation max tokens
             allowed_origins: Optional list of allowed origins
+            anomaly_detection_enabled: Enable anomaly detection step
+            anomaly_method: Detection method (zscore / iqr)
+            z_threshold: Z-score threshold
+            iqr_multiplier: IQR multiplier
+            anomaly_strict_mode: Raise error on anomaly            
     """
 
     environment: str
@@ -136,7 +141,12 @@ class RuntimeConfig:
     temperature: float
     max_tokens: int
     allowed_origins: list[str]
-
+    anomaly_detection_enabled: bool
+    anomaly_method: str
+    z_threshold: float
+    iqr_multiplier: float
+    anomaly_strict_mode: bool
+    
 @dataclass(frozen=True)
 class RagConfig:
     """
@@ -781,7 +791,16 @@ def _validate_config(config_obj: AppConfig) -> None:
             f"Got overlap={config_obj.rag.chunk_overlap}, "
             f"chunk_size={config_obj.rag.chunk_size}"
         )
+        
+    ## validate anomaly detection
+    if config_obj.runtime.anomaly_detection_enabled:
 
+        if config_obj.runtime.z_threshold <= 0:
+            raise ValueError("Z_THRESHOLD must be > 0")
+
+        if config_obj.runtime.anomaly_method not in {"zscore", "iqr"}:
+            raise ValueError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
+            
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -884,6 +903,11 @@ def get_config() -> AppConfig:
         temperature=_get_profiled_env_float("TEMPERATURE", 0.2, profile=profile),
         max_tokens=_get_profiled_env_int("MAX_TOKENS", 1024, profile=profile),
         allowed_origins=_get_env_list("ALLOWED_ORIGINS", ["*"]),
+        anomaly_detection_enabled=_get_profiled_env_bool("ANOMALY_DETECTION_ENABLED", True, profile=profile),
+        anomaly_method=_get_profiled_env_str("ANOMALY_METHOD", "zscore", profile=profile),
+        z_threshold=_get_profiled_env_float("Z_THRESHOLD", 3.0, profile=profile),
+        iqr_multiplier=_get_profiled_env_float("IQR_MULTIPLIER", 1.5, profile=profile),
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile=profile),        
     )
 
     ## Read retrieval settings with profile overrides

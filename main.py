@@ -16,6 +16,7 @@ import time
 from typing import Optional
 
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.core.errors import AutonomousAIPlatformError
 from src.pipeline import run_chat, run_evaluation, run_loop, pipeline_module
 from src.utils.logging_utils import get_logger
@@ -118,97 +119,32 @@ def _build_cli_parser() -> argparse.ArgumentParser:
         add_help=True,
     )
 
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {APP_VERSION}",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate inputs and log intended actions without executing them.",
-    )
-    parser.add_argument(
-        "--validate-config",
-        action="store_true",
-        help="Validate runtime configuration and exit.",
-    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
+    parser.add_argument("--dry-run", action="store_true", help="Validate inputs and log intended actions without executing them.")
+    parser.add_argument("--validate-config", action="store_true", help="Validate runtime configuration and exit.")
 
     ## Pipeline execution
-    parser.add_argument(
-        "--run-all",
-        action="store_true",
-        help="Run full pipeline: ingest -> loop example -> evaluation.",
-    )
-    parser.add_argument(
-        "--run-api",
-        action="store_true",
-        help="Run MCP API server.",
-    )
-    parser.add_argument(
-        "--ingest",
-        action="store_true",
-        help="Run ingestion pipeline without UI.",
-    )
+    parser.add_argument("--run-all", action="store_true", help="Run full pipeline: ingest -> loop example -> evaluation.")
+    parser.add_argument("--run-api", action="store_true", help="Run MCP API server.")
+    parser.add_argument("--ingest", action="store_true", help="Run ingestion pipeline without UI.")
 
     ## LLM execution
-    parser.add_argument(
-        "--chat",
-        type=str,
-        default="",
-        help="Run one chat turn without UI.",
-    )
-    parser.add_argument(
-        "--loop",
-        type=str,
-        default="",
-        help="Run autonomous loop without UI.",
-    )
+    parser.add_argument("--chat", type=str, default="", help="Run one chat turn without UI.")
+    parser.add_argument("--loop", type=str, default="", help="Run autonomous loop without UI.")
 
     ## Evaluation
-    parser.add_argument(
-        "--evaluate",
-        action="store_true",
-        help="Run evaluation without UI.",
-    )
-    parser.add_argument(
-        "--query",
-        type=str,
-        default="",
-        help="Evaluation query required with --evaluate.",
-    )
-    parser.add_argument(
-        "--answer",
-        type=str,
-        default="",
-        help="Evaluation answer required with --evaluate.",
-    )
+    parser.add_argument("--evaluate", action="store_true", help="Run evaluation without UI.")
+    parser.add_argument("--query", type=str, default="", help="Evaluation query required with --evaluate.")
+    parser.add_argument("--answer", type=str, default="", help="Evaluation answer required with --evaluate.")
 
     ## Runtime options
-    parser.add_argument(
-        "--prefer-local",
-        action="store_true",
-        help="Prefer local runtime.",
-    )
-    parser.add_argument(
-        "--prefer-api",
-        action="store_true",
-        help="Prefer API runtime.",
-    )
-    parser.add_argument(
-        "--use-gpu",
-        choices=["auto", "true", "false"],
-        default="auto",
-        help="GPU usage policy.",
-    )
-    parser.add_argument(
-        "--export",
-        action="store_true",
-        help="Export artifacts or reports.",
-    )
+    parser.add_argument("--prefer-local", action="store_true", help="Prefer local runtime.")
+    parser.add_argument("--prefer-api", action="store_true", help="Prefer API runtime.")
+    parser.add_argument("--use-gpu", choices=["auto", "true", "false"], default="auto", help="GPU usage policy.")
+    parser.add_argument("--export", action="store_true", help="Export artifacts or reports.")
 
     return parser
-
+    
 ## ============================================================
 ## HELPER FUNCTIONS
 ## ============================================================
@@ -332,9 +268,7 @@ def _run_cli() -> int:
 
         logger.info("CLI runtime resolved | %s", _safe_json(runtime_details))
 
-        ## ============================================================
         ## DATA CONSISTENCY CHECK (AUTONOMOUS PIPELINE)
-        ## ============================================================
         consistency_result = run_data_consistency(
             data={
                 "tasks": [
@@ -355,6 +289,19 @@ def _run_cli() -> int:
         )
 
         logger.info("Consistency OK | %s", consistency_result["is_consistent"])
+
+        ## DATA QUALITY CHECK (AUTONOMOUS PIPELINE)
+        quality_result = run_data_quality(
+            data={
+                "prompt_length": len(str(args.chat or args.loop or args.query or "")),
+                "tasks_count": 1,
+                "dependencies_count": 0,
+            },
+            strict=False,
+        )
+
+        logger.info("Quality score | %s", quality_result["score"])
+
         ## RUN FULL PIPELINE
         if bool(args.run_all):
             if bool(args.dry_run):

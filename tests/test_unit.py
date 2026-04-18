@@ -23,6 +23,7 @@ from src.utils.validation_utils import _must_be_non_empty, _require_int
 from src.utils.sqlite_manager import SqliteManager
 
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.core.errors import ValidationError, LlmProviderError
 import src.core.mcp_server as mcp
 
@@ -831,3 +832,75 @@ def test_data_consistency_invalid_dependency() -> None:
     result = run_data_consistency(data=data)
 
     assert result["is_consistent"] is False
+    
+## ============================================================
+## DATA QUALITY (AUTONOMOUS)
+## ============================================================
+def test_data_quality_valid() -> None:
+    """
+        Validate normal autonomous payload metrics
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": 50,
+        "tasks_count": 1,
+        "dependencies_count": 0,
+    }
+
+    result = run_data_quality(data=data)
+
+    assert result["is_valid"] is True
+    assert result["errors"] == 0
+
+def test_data_quality_outlier() -> None:
+    """
+        Detect abnormal payload values
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": 1000000,
+        "tasks_count": 1000,
+        "dependencies_count": 500,
+    }
+
+    result = run_data_quality(data=data)
+
+    assert result["warnings"] > 0
+
+def test_data_quality_invalid() -> None:
+    """
+        Detect invalid numeric values
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": float("nan"),
+        "tasks_count": 1,
+    }
+
+    result = run_data_quality(data=data)
+
+    assert result["errors"] > 0
+
+def test_data_quality_strict() -> None:
+    """
+        Strict mode should raise error
+
+        Returns:
+            None
+    """
+
+    data = {
+        "prompt_length": float("nan"),
+    }
+
+    with pytest.raises(Exception):
+        run_data_quality(data=data, strict=True)
