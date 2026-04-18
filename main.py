@@ -17,6 +17,7 @@ from typing import Optional
 
 from src.config.settings import build_pipeline_config
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.core.errors import LocalQuantizationError
 from src.pipeline import run_pipeline
 from src.utils.logging_utils import get_logger
@@ -54,21 +55,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--validate-config", action="store_true")
 
-    parser.add_argument(
-        "--env-file",
-        type=str,
-        default="",
-        help="Optional path to a .env file to load before building config",
-    )
+    parser.add_argument("--env-file", type=str, default="", help="Optional path to a .env file to load before building config")
 
-    parser.add_argument(
-        "--print-config",
-        action="store_true",
-        help="Print resolved configuration (safe fields only) then exit",
-    )
+    parser.add_argument("--print-config", action="store_true", help="Print resolved configuration (safe fields only) then exit")
 
     return parser
-
+    
 ## ============================================================
 ## HELPERS
 ## ============================================================
@@ -152,7 +144,7 @@ def _print_safe_config() -> int:
     LOGGER.info("BENCHMARK_PROMPTS=%s", str(config.benchmark.prompts_path) if config.benchmark else "")
 
     return EXIT_SUCCESS
-
+    
 ## ============================================================
 ## MAIN
 ## ============================================================
@@ -193,10 +185,8 @@ def main() -> int:
             return code
 
         config = build_pipeline_config()
-        
-        ## ============================================================
+
         ## DATA CONSISTENCY CHECK
-        ## ============================================================
         consistency_result = run_data_consistency(
             data={
                 "text": "quantization_run",
@@ -210,7 +200,23 @@ def main() -> int:
 
         if not consistency_result["is_consistent"]:
             raise LocalQuantizationError("Data consistency failed before pipeline")
-            
+
+        ## DATA QUALITY CHECK
+        quality_result = run_data_quality(
+            data=[
+                config.quantization.bits,
+                config.quantization.group_size,
+            ],
+            method="zscore",
+            strict=False,
+        )
+
+        LOGGER.info(f"Quality score: {quality_result['score']}")
+
+        if quality_result["errors"] > 0:
+            raise LocalQuantizationError("Data quality failed before quantization")
+
+        ## RUN PIPELINE
         run_pipeline(config)
 
         LOGGER.info("Pipeline completed successfully")
