@@ -8,6 +8,7 @@ __desc__ = "Minimal unit tests for rag-drive-gcp core components."
 import numpy as np
 
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.core.rag import Chunk, RAGIndex, chunk_text, retrieve_top_k
 from src.io.gcs import build_gcs_object_path
 from src.model.settings import get_settings
@@ -173,3 +174,62 @@ def test_data_consistency_invalid_embeddings():
     result = run_data_consistency(data=data)
 
     assert result["is_consistent"] is False
+    
+## ============================================================
+## DATA QUALITY TESTS
+## ============================================================
+def test_data_quality_valid_chunks():
+    """
+        Validate correct chunks
+    """
+
+    texts = ["this is a valid chunk"]
+
+    result = run_data_quality(texts=texts)
+
+    assert result["is_valid"] is True
+
+def test_data_quality_empty_chunk():
+    """
+        Detect empty chunk
+    """
+
+    texts = [""]
+
+    result = run_data_quality(texts=texts)
+
+    assert result["is_valid"] is False
+
+def test_data_quality_length_anomaly():
+    """
+        Detect abnormal chunk length
+    """
+
+    texts = ["short", "this is a very very very very very long chunk of text"]
+
+    result = run_data_quality(texts=texts, method="zscore")
+
+    assert any(issue["rule"] == "chunk_length_anomaly" for issue in result["issues"])
+
+def test_data_quality_scoring():
+    """
+        Ensure scoring is computed
+    """
+
+    texts = ["valid chunk"]
+
+    result = run_data_quality(texts=texts)
+
+    assert "score" in result
+
+def test_data_quality_strict_mode():
+    """
+        Strict mode should raise error
+    """
+
+    texts = [""]
+
+    import pytest
+
+    with pytest.raises(Exception):
+        run_data_quality(texts=texts, strict=True)
