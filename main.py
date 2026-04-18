@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.model.settings import get_settings
 from src.pipelines import run_drive_ingestion_pipeline, run_rag_query_pipeline
 from src.utils.logging_utils import get_logger
@@ -50,93 +51,31 @@ def _build_parser() -> argparse.ArgumentParser:
         add_help=True,
     )
 
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {APP_VERSION}",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate arguments and log intended action without executing it.",
-    )
-    parser.add_argument(
-        "--validate-config",
-        action="store_true",
-        help="Validate settings loading and exit.",
-    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
+    parser.add_argument("--dry-run", action="store_true", help="Validate arguments and log intended action without executing it.")
+    parser.add_argument("--validate-config", action="store_true", help="Validate settings loading and exit.")
 
     ## Execution modes
-    parser.add_argument(
-        "--ingest",
-        action="store_true",
-        help="Run Google Drive ingestion pipeline.",
-    )
-    parser.add_argument(
-        "--query",
-        action="store_true",
-        help="Run one RAG query from CLI.",
-    )
-    parser.add_argument(
-        "--run-ui",
-        action="store_true",
-        help="Launch the dedicated Streamlit UI file.",
-    )
+    parser.add_argument("--ingest", action="store_true", help="Run Google Drive ingestion pipeline.")
+    parser.add_argument("--query", action="store_true", help="Run one RAG query from CLI.")
+    parser.add_argument("--run-ui", action="store_true", help="Launch the dedicated Streamlit UI file.")
 
     ## Shared inputs
-    parser.add_argument(
-        "--folder-id",
-        type=str,
-        default="",
-        help="Google Drive folder ID override for ingestion.",
-    )
-    parser.add_argument(
-        "--run-ocr",
-        action="store_true",
-        help="Enable OCR during ingestion.",
-    )
-    parser.add_argument(
-        "--keep-local",
-        action="store_true",
-        help="Keep local files after ingestion.",
-    )
-    parser.add_argument(
-        "--top-k",
-        type=int,
-        default=0,
-        help="Top-K chunks for retrieval. If 0, use settings value.",
-    )
-    parser.add_argument(
-        "--chunk-size",
-        type=int,
-        default=0,
-        help="Chunk size override. If 0, use settings value.",
-    )
-    parser.add_argument(
-        "--chunk-overlap",
-        type=int,
-        default=0,
-        help="Chunk overlap override. If 0, use settings value.",
-    )
+    parser.add_argument("--folder-id", type=str, default="", help="Google Drive folder ID override for ingestion.")
+    parser.add_argument("--run-ocr", action="store_true", help="Enable OCR during ingestion.")
+    parser.add_argument("--keep-local", action="store_true", help="Keep local files after ingestion.")
+    parser.add_argument("--top-k", type=int, default=0, help="Top-K chunks for retrieval. If 0, use settings value.")
+    parser.add_argument("--chunk-size", type=int, default=0, help="Chunk size override. If 0, use settings value.")
+    parser.add_argument("--chunk-overlap", type=int, default=0, help="Chunk overlap override. If 0, use settings value.")
 
     ## Query input
-    parser.add_argument(
-        "--question",
-        type=str,
-        default="",
-        help="Question to ask through the RAG pipeline.",
-    )
+    parser.add_argument("--question", type=str, default="", help="Question to ask through the RAG pipeline.")
 
     ## Optional UI launcher path
-    parser.add_argument(
-        "--ui-file",
-        type=str,
-        default="",
-        help="Optional path to the dedicated Streamlit UI file.",
-    )
+    parser.add_argument("--ui-file", type=str, default="", help="Optional path to the dedicated Streamlit UI file.")
 
     return parser
-
+    
 ## ============================================================
 ## HELPERS
 ## ============================================================
@@ -330,10 +269,7 @@ def main() -> int:
 
             logger.info("Starting ingestion pipeline from CLI")
 
-            ## ============================================================
             ## DATA CONSISTENCY CHECK
-            ## ============================================================
-
             consistency_result = run_data_consistency(
                 data={
                     "text": "drive_ingestion",
@@ -345,7 +281,18 @@ def main() -> int:
 
             if not consistency_result["is_consistent"] and settings.data_consistency.strict_mode:
                 raise RuntimeError("Data consistency failed before ingestion")
-                
+
+            ## DATA QUALITY CHECK
+            if settings.anomaly_detection_enabled:
+                quality_result = run_data_quality(
+                    texts=["sample ingestion chunk"],
+                    method=settings.anomaly_method,
+                    z_threshold=settings.z_threshold,
+                    iqr_multiplier=settings.iqr_multiplier,
+                    strict=settings.anomaly_strict_mode,
+                )
+                logger.info(f"Data quality score: {quality_result['score']}")
+
             status = run_drive_ingestion_pipeline(
                 drive_folder_id=runtime_params["folder_id"],
                 run_ocr=runtime_params["run_ocr"],
@@ -370,10 +317,7 @@ def main() -> int:
         if args.query:
             logger.info("Starting RAG CLI query")
 
-            ## ============================================================
             ## DATA CONSISTENCY CHECK
-            ## ============================================================
-
             consistency_result = run_data_consistency(
                 data={
                     "query": args.question.strip(),
@@ -385,12 +329,23 @@ def main() -> int:
 
             if not consistency_result["is_consistent"] and settings.data_consistency.strict_mode:
                 raise RuntimeError("Data consistency failed for query")
-            
+
+            ## DATA QUALITY CHECK
+            if settings.anomaly_detection_enabled:
+                quality_result = run_data_quality(
+                    texts=[args.question.strip()],
+                    method=settings.anomaly_method,
+                    z_threshold=settings.z_threshold,
+                    iqr_multiplier=settings.iqr_multiplier,
+                    strict=settings.anomaly_strict_mode,
+                )
+                logger.info(f"Data quality score: {quality_result['score']}")
+
             answer = run_rag_query_pipeline(
                 question=args.question.strip(),
                 top_k=runtime_params["top_k"],
             )
-    
+
             logger.info("RAG query completed successfully")
             print(answer)
 

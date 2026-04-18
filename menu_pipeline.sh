@@ -6,9 +6,9 @@
 # Version: 1.0.0
 # Description:
 #   CLI menu to run the main rag-drive-gcp workflows:
-#   - validate configuration (with data consistency)
-#   - run ingestion pipeline from Google Drive (with optional OCR) (with data consistency)
-#   - run a RAG query from CLI (with data consistency)
+#   - validate configuration (with data consistency + data quality)
+#   - run ingestion pipeline from Google Drive (with optional OCR) (with data consistency + data quality)
+#   - run a RAG query from CLI (with data consistency + data quality)
 #   - launch Streamlit UI (separate file)
 ###############################################################################
 
@@ -18,7 +18,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 echo "=============================================="
-echo " RAG-Drive-GCP - Pipeline Menu"
+echo " RAG-Drive-GCP - Pipeline Menu (data consistency + data quality)"
 echo "=============================================="
 echo "Project root: ${PROJECT_ROOT}"
 echo ""
@@ -44,13 +44,14 @@ run_python() {
 while true; do
   echo ""
   echo "Select an action:"
-  echo " 1) Validate config (with data consistency)"
+  echo " 1) Validate config (with data consistency + data quality)"
   echo " 2) Dry-run"
-  echo " 3) Run ingestion (Drive → OCR → GCS → embeddings) (with data consistency)"
-  echo " 4) Run RAG query (CLI) (with data consistency)"
+  echo " 3) Run ingestion (Drive → OCR → GCS → embeddings) (with data consistency + data quality)"
+  echo " 4) Run RAG query (CLI) (with data consistency + data quality)"
   echo " 5) Launch Streamlit UI"
   echo " 6) Show help"
   echo " 7) Show version"
+  echo " 8) Run data quality check only"
   echo " 0) Exit"
   echo ""
 
@@ -129,6 +130,15 @@ while true; do
       ;;
     7)
       run_python main.py --version
+      pause
+      ;;
+    8)
+      echo ""
+      echo "Running data quality check..."
+      echo ""
+
+      run_python main.py --validate-config
+
       pause
       ;;
     0)

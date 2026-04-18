@@ -149,6 +149,11 @@ class RuntimeConfig:
             max_workers: Maximum worker count
             batch_sleep_seconds: Sleep delay between batches
             allowed_origins: Allowed origins for future API usage
+            anomaly_detection_enabled: Enable anomaly detection
+            anomaly_method: Detection method (zscore or iqr)
+            z_threshold: Z-score threshold
+            iqr_multiplier: IQR multiplier
+            anomaly_strict_mode: Raise error if anomaly detected            
     """
 
     environment: str
@@ -160,7 +165,12 @@ class RuntimeConfig:
     max_workers: int
     batch_sleep_seconds: float
     allowed_origins: list[str]
-
+    anomaly_detection_enabled: bool
+    anomaly_method: str
+    z_threshold: float
+    iqr_multiplier: float
+    anomaly_strict_mode: bool
+    
 @dataclass(frozen=True)
 class DriveConfig:
     """
@@ -683,6 +693,18 @@ def _validate_config(config: AppConfig) -> None:
     if config.data_consistency.strict_mode and not config.data_consistency.enabled:
         raise ConfigurationError("DATA_CONSISTENCY_STRICT requires DATA_CONSISTENCY_ENABLED=True")
 
+    ## Validate anomaly detection config
+    if config.runtime.anomaly_detection_enabled:
+
+        if config.runtime.anomaly_method not in {"zscore", "iqr"}:
+            raise ConfigurationError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
+
+        if config.runtime.z_threshold <= 0:
+            raise ConfigurationError("Z_THRESHOLD must be > 0")
+
+        if config.runtime.iqr_multiplier <= 0:
+            raise ConfigurationError("IQR_MULTIPLIER must be > 0")
+            
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -796,6 +818,11 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         max_workers=_get_profiled_env_int("MAX_WORKERS", 4, profile),
         batch_sleep_seconds=_get_profiled_env_float("BATCH_SLEEP_SECONDS", 0.0, profile),
         allowed_origins=_get_env_list("ALLOWED_ORIGINS", ["*"]),
+        anomaly_detection_enabled=_get_profiled_env_bool("ANOMALY_DETECTION_ENABLED", True, profile),
+        anomaly_method=_get_profiled_env("ANOMALY_METHOD", "zscore", profile),
+        z_threshold=_get_profiled_env_float("Z_THRESHOLD", 3.0, profile),
+        iqr_multiplier=_get_profiled_env_float("IQR_MULTIPLIER", 1.5, profile),
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),        
     )
 
     ## Load GCP config JSON
