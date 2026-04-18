@@ -182,6 +182,11 @@ class RuntimeConfig:
             use_gpu_mode: Raw GPU mode
             use_gpu: Final GPU decision
             allowed_origins: Allowed HTTP origins for future API usage
+            anomaly_detection_enabled: Enable anomaly detection for tensors before quantization
+            anomaly_method: Detection method (zscore / iqr)
+            z_threshold: Z-score threshold
+            iqr_multiplier: IQR multiplier
+            anomaly_strict_mode: Raise error if anomaly detected            
     """
 
     environment: str
@@ -191,7 +196,12 @@ class RuntimeConfig:
     use_gpu_mode: UseGpuMode
     use_gpu: bool
     allowed_origins: list[str]
-
+    anomaly_detection_enabled: bool
+    anomaly_method: str
+    z_threshold: float
+    iqr_multiplier: float
+    anomaly_strict_mode: bool
+    
 @dataclass(frozen=True)
 class QuantizationConfig:
     """
@@ -706,6 +716,17 @@ def _validate_config(config: AppConfig) -> None:
     if config.quantization.adapter_path is not None and not config.quantization.adapter_path.exists():
         raise ConfigurationError(f"ADAPTER_PATH does not exist: {config.quantization.adapter_path}")
 
+    ## Validate anomaly detection
+    if config.runtime.anomaly_detection_enabled:
+
+        if config.runtime.anomaly_method not in {"zscore", "iqr"}:
+            raise ConfigurationError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
+
+        if config.runtime.z_threshold <= 0:
+            raise ConfigurationError("Z_THRESHOLD must be > 0")
+
+        if config.runtime.iqr_multiplier <= 0:
+            raise ConfigurationError("IQR_MULTIPLIER must be > 0")
 
 ## ============================================================
 ## EXPORT HELPERS
@@ -835,6 +856,11 @@ def get_config() -> AppConfig:
         log_level=_get_profiled_env("LOG_LEVEL", "INFO", profile),
         use_gpu_mode=use_gpu_mode, use_gpu=_detect_gpu_requested(use_gpu_mode),
         allowed_origins=_get_env_list("ALLOWED_ORIGINS", ["*"]),
+        anomaly_detection_enabled=_get_profiled_env_bool("ANOMALY_DETECTION_ENABLED", True, profile),
+        anomaly_method=_get_profiled_env("ANOMALY_METHOD", "zscore", profile),
+        z_threshold=float(_get_profiled_env("Z_THRESHOLD", "3.0", profile)),
+        iqr_multiplier=float(_get_profiled_env("IQR_MULTIPLIER", "1.5", profile)),
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),        
     )
 
     ## Resolve quantization section

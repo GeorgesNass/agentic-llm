@@ -12,9 +12,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import numpy as np
 
 from src.config.settings import build_pipeline_config
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.core.errors import (
     ConfigurationError,
     DataError,
@@ -323,3 +325,90 @@ def test_data_consistency_missing_model():
     result = run_data_consistency(data=data)
 
     assert result["is_consistent"] is False
+    
+## ============================================================
+## DATA QUALITY TESTS (LOCAL QUANTIZATION)
+## ============================================================
+def test_data_quality_valid_tensor() -> None:
+    """
+        Validate normal tensor values
+
+        Returns:
+            None
+    """
+
+    data = [1.0, 2.0, 3.0, 4.0]
+
+    result = run_data_quality(data=data)
+
+    assert result["is_valid"] is True
+    assert result["errors"] == 0
+
+def test_data_quality_nan_detection() -> None:
+    """
+        Detect NaN values
+
+        Returns:
+            None
+    """
+
+    data = [1.0, np.nan, 2.0]
+
+    result = run_data_quality(data=data)
+
+    assert result["errors"] > 0
+
+def test_data_quality_inf_detection() -> None:
+    """
+        Detect infinite values
+
+        Returns:
+            None
+    """
+
+    data = [1.0, np.inf, 2.0]
+
+    result = run_data_quality(data=data)
+
+    assert result["errors"] > 0
+
+def test_data_quality_outliers_zscore() -> None:
+    """
+        Detect extreme values via z-score
+
+        Returns:
+            None
+    """
+
+    data = [1, 2, 3, 1000000]
+
+    result = run_data_quality(data=data, method="zscore")
+
+    assert result["warnings"] > 0
+
+def test_data_quality_outliers_iqr() -> None:
+    """
+        Detect extreme values via IQR
+
+        Returns:
+            None
+    """
+
+    data = [1, 2, 3, 1000000]
+
+    result = run_data_quality(data=data, method="iqr")
+
+    assert result["warnings"] > 0
+
+def test_data_quality_strict_mode() -> None:
+    """
+        Strict mode should raise on error
+
+        Returns:
+            None
+    """
+
+    data = [np.nan]
+
+    with pytest.raises(Exception):
+        run_data_quality(data=data, strict=True)
