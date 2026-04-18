@@ -17,6 +17,7 @@ from typing import Optional
 
 from src.pipeline import evaluate, full_run, prepare, train
 from src.core.data_consistency import run_data_consistency
+from src.core.data_quality import run_data_quality
 from src.config import get_config
 from src.core.errors import DataError, ConfigurationError
 from src.utils.logging_utils import get_logger
@@ -50,36 +51,18 @@ def _build_parser() -> argparse.ArgumentParser:
         add_help=True,
     )
 
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {APP_VERSION}",
-    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--validate-config", action="store_true")
 
-    parser.add_argument(
-        "command",
-        choices=["prepare", "train", "evaluate", "full"],
-        help="Pipeline command to run",
-    )
+    parser.add_argument("command", choices=["prepare", "train", "evaluate", "full"], help="Pipeline command to run")
 
-    parser.add_argument(
-        "--env",
-        type=Path,
-        default=None,
-        help="Optional path to .env file",
-    )
+    parser.add_argument("--env", type=Path, default=None, help="Optional path to .env file")
 
-    parser.add_argument(
-        "--run-dir",
-        type=Path,
-        default=None,
-        help="Existing run directory (used for evaluation)",
-    )
+    parser.add_argument("--run-dir", type=Path, default=None, help="Existing run directory (used for evaluation)")
 
     return parser
-
+    
 ## ============================================================
 ## HELPERS
 ## ============================================================
@@ -108,7 +91,7 @@ def _build_summary(
         "duration_seconds": round(time.monotonic() - start, 3),
         "details": details or {},
     }
-
+ 
 ## ============================================================
 ## MAIN
 ## ============================================================
@@ -143,11 +126,7 @@ def main() -> int:
 
         env_path: Optional[Path] = args.env
 
-
-        ## ============================================================
         ## DATA CONSISTENCY CHECK
-        ## ============================================================
-
         config = get_config()
 
         if config.data_consistency.enabled:
@@ -155,7 +134,7 @@ def main() -> int:
                 data={
                     "text": "finetuning_run",
                     "model_name": config.training.base_model_name,
-                    "dataset": ["sample"],  ## minimal placeholder
+                    "dataset": ["sample"],
                     "batch_size": config.training.batch_size,
                     "epochs": config.training.num_train_epochs,
                 },
@@ -166,7 +145,26 @@ def main() -> int:
 
             if not consistency_result["is_consistent"] and config.data_consistency.strict_mode:
                 raise DataError("Data consistency failed before pipeline")
-                
+
+        ## DATA QUALITY CHECK
+        if config.runtime.anomaly_detection_enabled:
+
+            quality_result = run_data_quality(
+                data=[
+                    config.training.batch_size,
+                    config.training.num_train_epochs,
+                ],
+                method=config.runtime.anomaly_method,
+                z_threshold=config.runtime.z_threshold,
+                iqr_multiplier=config.runtime.iqr_multiplier,
+                strict=config.runtime.anomaly_strict_mode,
+            )
+
+            logger.info(f"Quality score: {quality_result['score']}")
+
+            if quality_result["errors"] > 0 and config.runtime.anomaly_strict_mode:
+                raise DataError("Data quality failed before pipeline")
+
         ## COMMAND DISPATCH
         if args.command == "prepare":
             prepare(env_path=env_path)

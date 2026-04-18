@@ -166,6 +166,11 @@ class RuntimeConfig:
             use_gpu_mode: Raw GPU mode
             use_gpu: Final GPU decision
             allowed_origins: Allowed HTTP origins for future API usage
+            anomaly_detection_enabled: Enable anomaly detection before training
+            anomaly_method: Detection method (zscore or iqr)
+            z_threshold: Z-score threshold
+            iqr_multiplier: IQR multiplier
+            anomaly_strict_mode: Raise error if anomaly detected            
     """
 
     environment: str
@@ -175,7 +180,12 @@ class RuntimeConfig:
     use_gpu_mode: UseGpuMode
     use_gpu: bool
     allowed_origins: list[str]
-
+    anomaly_detection_enabled: bool
+    anomaly_method: str
+    z_threshold: float
+    iqr_multiplier: float
+    anomaly_strict_mode: bool
+    
 @dataclass(frozen=True)
 class DataConfig:
     """
@@ -748,6 +758,18 @@ def _validate_config(config: AppConfig) -> None:
     ## Validate evaluation parameters
     _validate_positive_int(config.evaluation.top_k, "TOP_K")
 
+    ## validate anomaly detection
+    if config.runtime.anomaly_detection_enabled:
+
+        if config.runtime.anomaly_method not in {"zscore", "iqr"}:
+            raise ConfigurationError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
+
+        if config.runtime.z_threshold <= 0:
+            raise ConfigurationError("Z_THRESHOLD must be > 0")
+
+        if config.runtime.iqr_multiplier <= 0:
+            raise ConfigurationError("IQR_MULTIPLIER must be > 0")
+            
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -873,6 +895,11 @@ def get_config() -> AppConfig:
         log_level=_get_profiled_env("LOG_LEVEL", "INFO", profile),
         use_gpu_mode=use_gpu_mode, use_gpu=_detect_gpu_requested(use_gpu_mode),
         allowed_origins=_get_env_list("ALLOWED_ORIGINS", ["*"]),
+        anomaly_detection_enabled=_get_profiled_env_bool("ANOMALY_DETECTION_ENABLED", True, profile),
+        anomaly_method=_get_profiled_env("ANOMALY_METHOD", "zscore", profile),
+        z_threshold=_get_env_float("Z_THRESHOLD", 3.0),
+        iqr_multiplier=_get_env_float("IQR_MULTIPLIER", 1.5),
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),        
     )
 
     ## Build data section
