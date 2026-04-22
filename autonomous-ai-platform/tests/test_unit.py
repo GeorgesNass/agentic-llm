@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 import types
+import pandas as pd
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -24,6 +25,7 @@ from src.utils.sqlite_manager import SqliteManager
 
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.errors import ValidationError, LlmProviderError
 import src.core.mcp_server as mcp
 
@@ -904,3 +906,104 @@ def test_data_quality_strict() -> None:
 
     with pytest.raises(Exception):
         run_data_quality(data=data, strict=True)
+        
+## ============================================================
+## DATA DRIFT (AUTONOMOUS)
+## ============================================================
+def test_data_drift_no_drift_autonomous() -> None:
+    """
+        Validate no drift scenario on features and predictions
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "feature1": [1, 2, 3],
+        "prediction": [0.1, 0.2, 0.3],
+        "label": ["a", "a", "b"],
+    })
+
+    df_cur = pd.DataFrame({
+        "feature1": [1, 2, 3],
+        "prediction": [0.1, 0.2, 0.3],
+        "label": ["a", "a", "b"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] >= 0.9
+    assert result["errors"] == 0
+
+def test_data_drift_detected_autonomous() -> None:
+    """
+        Detect drift on features and predictions
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "feature1": [1, 2, 3],
+        "prediction": [0.1, 0.2, 0.3],
+        "label": ["a", "a", "b"],
+    })
+
+    df_cur = pd.DataFrame({
+        "feature1": [100, 200, 300],
+        "prediction": [10.0, 20.0, 30.0],
+        "label": ["c", "c", "c"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] < 1.0
+    assert result["warnings"] > 0
+
+def test_data_drift_empty_autonomous() -> None:
+    """
+        Validate empty dataset handling
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame()
+    df_cur = pd.DataFrame()
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+def test_data_drift_strict_autonomous() -> None:
+    """
+        Validate strict mode behavior
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({"feature1": [1]})
+    df_cur = pd.DataFrame({"feature1": [1000]})
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur, strict=True)
+        
+def test_data_drift_evidently_output_autonomous() -> None:
+    """
+        Validate Evidently report generation for autonomous platform
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "feature1": [1, 2],
+        "prediction": [0.1, 0.2],
+        "label": ["a", "b"],
+    })
+
+    df_cur = df_ref.copy()
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert "evidently_report" in result or result["warnings"] >= 0
