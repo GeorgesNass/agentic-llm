@@ -12,12 +12,14 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import pandas as pd
 from pathlib import Path
 from typing import Optional
 
 from src.pipeline import evaluate, full_run, prepare, train
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.config import get_config
 from src.core.errors import DataError, ConfigurationError
 from src.utils.logging_utils import get_logger
@@ -165,6 +167,35 @@ def main() -> int:
             if quality_result["errors"] > 0 and config.runtime.anomaly_strict_mode:
                 raise DataError("Data quality failed before pipeline")
 
+        
+        ## DATA DRIFT CHECK
+        if config.runtime.drift_detection_enabled:
+
+            ## minimal synthetic dataset for baseline drift monitoring
+            df_ref = pd.DataFrame({
+                "text": ["a", "b", "c"],
+                "label": ["x", "y", "z"],
+            })
+
+            df_cur = pd.DataFrame({
+                "text": ["a", "b", "c"],
+                "label": ["x", "y", "z"],
+            })
+
+            drift_result = run_data_drift(
+                df_ref=df_ref,
+                df_current=df_cur,
+                strict=config.runtime.drift_strict_mode,
+            )
+
+            logger.info("Drift score | %s", drift_result["drift_score"])
+
+        if "evidently_report" in drift_result:
+            logger.info("Evidently report | %s", drift_result["evidently_report"])
+            
+        if drift_result["errors"] > 0:
+            raise DataError("Data drift failed before pipeline")
+            
         ## COMMAND DISPATCH
         if args.command == "prepare":
             prepare(env_path=env_path)

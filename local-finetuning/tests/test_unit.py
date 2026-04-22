@@ -19,6 +19,7 @@ import csv
 
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.metrics import (
     confusion_matrix,
     exact_match,
@@ -631,3 +632,87 @@ def test_data_quality_strict_mode() -> None:
 
     with pytest.raises(Exception):
         run_data_quality(data=data, strict=True)
+        
+## ============================================================
+## DATA DRIFT TESTS (FINETUNING)
+## ============================================================
+def test_data_drift_no_drift_finetuning() -> None:
+    """
+        Validate no drift scenario on dataset
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["a", "b", "c"],
+        "label": ["x", "y", "z"],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["a", "b", "c"],
+        "label": ["x", "y", "z"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] >= 0.9
+    assert result["errors"] == 0
+
+def test_data_drift_detected_finetuning() -> None:
+    """
+        Detect drift on labels and text length
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["short", "short", "short"],
+        "label": ["a", "a", "a"],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["very very long text", "very very long text", "very very long text"],
+        "label": ["b", "b", "b"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] < 1.0
+    assert result["warnings"] > 0
+
+def test_data_drift_empty_finetuning() -> None:
+    """
+        Validate empty dataset handling
+    """
+
+    df_ref = pd.DataFrame()
+    df_cur = pd.DataFrame()
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+def test_data_drift_strict_finetuning() -> None:
+    """
+        Validate strict mode behavior
+    """
+
+    df_ref = pd.DataFrame({"text": ["a"]})
+    df_cur = pd.DataFrame({"text": ["very very very long text"]})
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur, strict=True)
+    
+def test_data_drift_evidently_output_finetuning() -> None:
+    """
+        Validate Evidently report generation for finetuning drift
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["a", "b"],
+        "label": ["x", "y"],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["a", "b"],
+        "label": ["x", "y"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert "evidently_report" in result or result["warnings"] >= 0

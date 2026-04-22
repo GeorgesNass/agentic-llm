@@ -170,7 +170,12 @@ class RuntimeConfig:
             anomaly_method: Detection method (zscore or iqr)
             z_threshold: Z-score threshold
             iqr_multiplier: IQR multiplier
-            anomaly_strict_mode: Raise error if anomaly detected            
+            anomaly_strict_mode: Raise error if anomaly detected
+            drift_detection_enabled: Enable data drift detection on datasets and training metrics
+            drift_p_value_threshold: Statistical p-value threshold for drift detection
+            drift_loss_threshold: Threshold for loss/perplexity drift
+            drift_embedding_threshold: Threshold for embedding drift
+            drift_strict_mode: Raise error if drift detected            
     """
 
     environment: str
@@ -185,6 +190,11 @@ class RuntimeConfig:
     z_threshold: float
     iqr_multiplier: float
     anomaly_strict_mode: bool
+    drift_detection_enabled: bool
+    drift_p_value_threshold: float
+    drift_loss_threshold: float
+    drift_embedding_threshold: float
+    drift_strict_mode: bool
     
 @dataclass(frozen=True)
 class DataConfig:
@@ -758,7 +768,7 @@ def _validate_config(config: AppConfig) -> None:
     ## Validate evaluation parameters
     _validate_positive_int(config.evaluation.top_k, "TOP_K")
 
-    ## validate anomaly detection
+    ## Validate anomaly detection
     if config.runtime.anomaly_detection_enabled:
 
         if config.runtime.anomaly_method not in {"zscore", "iqr"}:
@@ -769,7 +779,20 @@ def _validate_config(config: AppConfig) -> None:
 
         if config.runtime.iqr_multiplier <= 0:
             raise ConfigurationError("IQR_MULTIPLIER must be > 0")
-            
+
+    ## Validate drift parameters
+    if config.runtime.drift_detection_enabled:
+
+        _validate_probability_open(
+            config.runtime.drift_p_value_threshold,
+            "DRIFT_P_VALUE_THRESHOLD",
+        )
+
+        if config.runtime.drift_loss_threshold < 0:
+            raise ConfigurationError("DRIFT_LOSS_THRESHOLD must be >= 0")
+
+        if config.runtime.drift_embedding_threshold < 0:
+            raise ConfigurationError("DRIFT_EMBEDDING_THRESHOLD must be >= 0")            
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -899,7 +922,12 @@ def get_config() -> AppConfig:
         anomaly_method=_get_profiled_env("ANOMALY_METHOD", "zscore", profile),
         z_threshold=_get_env_float("Z_THRESHOLD", 3.0),
         iqr_multiplier=_get_env_float("IQR_MULTIPLIER", 1.5),
-        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),        
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),
+        drift_detection_enabled=_get_profiled_env_bool("DRIFT_DETECTION_ENABLED", True, profile),
+        drift_p_value_threshold=_get_env_float("DRIFT_P_VALUE_THRESHOLD", 0.05),
+        drift_loss_threshold=_get_env_float("DRIFT_LOSS_THRESHOLD", 0.2),
+        drift_embedding_threshold=_get_env_float("DRIFT_EMBEDDING_THRESHOLD", 0.2),
+        drift_strict_mode=_get_profiled_env_bool("DRIFT_STRICT_MODE", False, profile),        
     )
 
     ## Build data section
