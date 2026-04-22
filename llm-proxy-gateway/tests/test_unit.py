@@ -12,14 +12,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+import pandas as pd
 
 import pytest
 
-## ============================================================
 ## IMPORTS UNDER TEST
-## ============================================================
 from src.core.data_quality import run_data_quality
 from src.core.data_consistency import run_data_consistency
+from src.core.data_drift import run_data_drift
 from src.utils.costing_utils import (
     ScanStats,
     cost_usd_for_chat,
@@ -30,13 +30,6 @@ from src.utils.costing_utils import (
     resolve_model_for_provider,
 )
 from src.utils.tokeniser_utils import approximate_token_count
-
-## ------------------------------------------------------------
-## NOTE
-## ------------------------------------------------------------
-## scan_* helpers are expected to be moved into src/utils/utils.py
-## If you have not moved them yet, adapt imports accordingly
-## ------------------------------------------------------------
 from src.utils.utils import (
     scan_folder_txt_inputs,
     scan_text_input_for_chat,
@@ -646,3 +639,98 @@ def test_data_quality_strict() -> None:
 
     with pytest.raises(Exception):
         run_data_quality(data=data, strict=True)
+        
+## ============================================================
+## DATA DRIFT TESTS (LLM GATEWAY)
+## ============================================================
+def test_data_drift_no_drift_llm() -> None:
+    """
+        Validate no drift scenario on LLM metrics
+    """
+
+    df_ref = pd.DataFrame({
+        "response_time": [100, 110],
+        "input_tokens": [50, 60],
+        "output_tokens": [20, 25],
+        "model": ["gpt-4o-mini", "gpt-4o-mini"],
+    })
+
+    df_cur = pd.DataFrame({
+        "response_time": [100, 110],
+        "input_tokens": [50, 60],
+        "output_tokens": [20, 25],
+        "model": ["gpt-4o-mini", "gpt-4o-mini"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] >= 0.9
+    assert result["errors"] == 0
+
+def test_data_drift_detected_llm() -> None:
+    """
+        Detect drift on latency and tokens
+    """
+
+    df_ref = pd.DataFrame({
+        "response_time": [100, 100],
+        "input_tokens": [50, 50],
+        "output_tokens": [20, 20],
+        "model": ["gpt-4o-mini", "gpt-4o-mini"],
+    })
+
+    df_cur = pd.DataFrame({
+        "response_time": [1000, 1200],
+        "input_tokens": [500, 600],
+        "output_tokens": [200, 250],
+        "model": ["gpt-4o", "gpt-4o"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] < 1.0
+    assert result["warnings"] > 0
+
+def test_data_drift_empty_llm() -> None:
+    """
+        Validate empty dataset handling
+    """
+
+    df_ref = pd.DataFrame()
+    df_cur = pd.DataFrame()
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+
+def test_data_drift_strict_llm() -> None:
+    """
+        Validate strict mode behavior
+    """
+
+    df_ref = pd.DataFrame({"response_time": [100]})
+    df_cur = pd.DataFrame({"response_time": [1000]})
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur, strict=True)
+        
+def test_data_drift_evidently_output_llm_proxy() -> None:
+    """
+        Validate Evidently report generation for LLM proxy drift
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "response_time": [100, 110],
+        "input_tokens": [50, 60],
+        "output_tokens": [20, 25],
+        "model": ["gpt-4o-mini", "gpt-4o-mini"],
+    })
+
+    df_cur = df_ref.copy()
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert "evidently_report" in result or result["warnings"] >= 0

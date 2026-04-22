@@ -3,15 +3,16 @@
 ###############################################################################
 # LLM Proxy Gateway - CLI Menu
 # Author: Georges Nassopoulos
-# Version: 1.0.0
+# Version: 1.1.0
 # Description:
-#   Interactive CLI to run (with data consistency + data quality):
+#   Interactive CLI to run (with data consistency + data quality + data drift):
 #   - Cost simulation (chat or embeddings)
 #   - Direct chat completion
 #   - Embeddings generation
 #   - Evaluation
 #   - FastAPI service
 #   - Unit tests
+#   - Data drift detection
 ###############################################################################
 
 set -euo pipefail
@@ -50,6 +51,8 @@ while true; do
   echo " 2) Simulate cost (embeddings) (with data consistency + data quality)"
   echo " 3) Run API (uvicorn) (with data consistency + data quality)"
   echo " 4) Run tests (pytest)"
+  echo " 5) Run data drift"
+  echo " 6) Simulate + drift"
   echo " 0) Exit"
   echo ""
 
@@ -127,6 +130,40 @@ while true; do
       echo ">>> Running pytest"
       cd "${PROJECT_ROOT}"
       $PYTHON_BIN -m pytest -q
+      pause
+      ;;
+    5)
+      ## DATA DRIFT ONLY
+      read -rp "Reference dataset path [default: ./artifacts/reference.csv]: " REF_PATH
+      REF_PATH="${REF_PATH:-./artifacts/reference.csv}"
+
+      read -rp "Current dataset path [default: ./artifacts/current.csv]: " CUR_PATH
+      CUR_PATH="${CUR_PATH:-./artifacts/current.csv}"
+
+      run_python main.py --mode drift --ref "$REF_PATH" --current "$CUR_PATH"
+      pause
+      ;;
+    6)
+      ## SIMULATION + DRIFT
+      read -rp "Provider (openai|google|xai) [default: openai]: " PROVIDER
+      read -rp "Model [default: gpt-4o-mini]: " MODEL
+      read -rp "Text prompt: " TEXT
+
+      PROVIDER="${PROVIDER:-openai}"
+      MODEL="${MODEL:-gpt-4o-mini}"
+
+      read -rp "Reference dataset path [default: ./artifacts/reference.csv]: " REF_PATH
+      REF_PATH="${REF_PATH:-./artifacts/reference.csv}"
+
+      run_python main.py \
+        --simulate-cost \
+        --mode chat \
+        --providers "${PROVIDER}" \
+        --model "${MODEL}" \
+        --text "${TEXT}" \
+        --with-drift \
+        --ref "${REF_PATH}"
+
       pause
       ;;
     0)
