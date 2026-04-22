@@ -13,10 +13,12 @@ import argparse
 import os
 import sys
 import time
+import pandas as pd
 from typing import Optional
 
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.errors import AutonomousAIPlatformError
 from src.pipeline import run_chat, run_evaluation, run_loop, pipeline_module
 from src.utils.logging_utils import get_logger
@@ -302,6 +304,36 @@ def _run_cli() -> int:
 
         logger.info("Quality score | %s", quality_result["score"])
 
+        ## DATA DRIFT CHECK (AUTONOMOUS PIPELINE)
+        if True:  # or config flag later if needed
+
+            ## minimal synthetic datasets for baseline drift monitoring
+            df_ref = pd.DataFrame({
+                "feature1": [1, 2, 3],
+                "prediction": [0.1, 0.2, 0.3],
+                "label": ["a", "a", "b"],
+            })
+
+            df_cur = pd.DataFrame({
+                "feature1": [1, 2, 3],
+                "prediction": [0.1, 0.2, 0.3],
+                "label": ["a", "a", "b"],
+            })
+
+            drift_result = run_data_drift(
+                df_ref=df_ref,
+                df_current=df_cur,
+                strict=False,
+            )
+
+            logger.info("Drift score | %s", drift_result["drift_score"])
+
+            if "evidently_report" in drift_result:
+                logger.info("Evidently report | %s", drift_result["evidently_report"])
+                
+            if drift_result["errors"] > 0:
+                raise RuntimeError("Data drift failed at startup")
+                
         ## RUN FULL PIPELINE
         if bool(args.run_all):
             if bool(args.dry_run):

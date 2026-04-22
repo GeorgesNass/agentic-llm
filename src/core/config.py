@@ -126,7 +126,12 @@ class RuntimeConfig:
             anomaly_method: Detection method (zscore / iqr)
             z_threshold: Z-score threshold
             iqr_multiplier: IQR multiplier
-            anomaly_strict_mode: Raise error on anomaly            
+            anomaly_strict_mode: Raise error on anomaly
+            drift_detection_enabled: Enable data drift detection
+            drift_p_value_threshold: Statistical p-value threshold for drift detection
+            drift_feature_threshold: Threshold for feature drift
+            drift_prediction_threshold: Threshold for prediction drift
+            drift_strict_mode: Raise error if drift detected            
     """
 
     environment: str
@@ -146,6 +151,11 @@ class RuntimeConfig:
     z_threshold: float
     iqr_multiplier: float
     anomaly_strict_mode: bool
+    drift_detection_enabled: bool
+    drift_p_value_threshold: float
+    drift_feature_threshold: float
+    drift_prediction_threshold: float
+    drift_strict_mode: bool
     
 @dataclass(frozen=True)
 class RagConfig:
@@ -792,7 +802,7 @@ def _validate_config(config_obj: AppConfig) -> None:
             f"chunk_size={config_obj.rag.chunk_size}"
         )
         
-    ## validate anomaly detection
+    ## Validate anomaly detection
     if config_obj.runtime.anomaly_detection_enabled:
 
         if config_obj.runtime.z_threshold <= 0:
@@ -800,7 +810,25 @@ def _validate_config(config_obj: AppConfig) -> None:
 
         if config_obj.runtime.anomaly_method not in {"zscore", "iqr"}:
             raise ValueError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
-            
+
+    ## Validate drift parameters
+    if config_obj.runtime.drift_detection_enabled:
+
+        _validate_probability(
+            config_obj.runtime.drift_p_value_threshold,
+            "DRIFT_P_VALUE_THRESHOLD",
+        )
+
+        _validate_probability(
+            config_obj.runtime.drift_feature_threshold,
+            "DRIFT_FEATURE_THRESHOLD",
+        )
+
+        _validate_probability(
+            config_obj.runtime.drift_prediction_threshold,
+            "DRIFT_PREDICTION_THRESHOLD",
+        ) 
+        
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -907,7 +935,12 @@ def get_config() -> AppConfig:
         anomaly_method=_get_profiled_env_str("ANOMALY_METHOD", "zscore", profile=profile),
         z_threshold=_get_profiled_env_float("Z_THRESHOLD", 3.0, profile=profile),
         iqr_multiplier=_get_profiled_env_float("IQR_MULTIPLIER", 1.5, profile=profile),
-        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile=profile),        
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile=profile),
+        drift_detection_enabled=_get_profiled_env_bool("DRIFT_DETECTION_ENABLED", True, profile=profile),
+        drift_p_value_threshold=_get_profiled_env_float("DRIFT_P_VALUE_THRESHOLD", 0.05, profile=profile),
+        drift_feature_threshold=_get_profiled_env_float("DRIFT_FEATURE_THRESHOLD", 0.2, profile=profile),
+        drift_prediction_threshold=_get_profiled_env_float("DRIFT_PREDICTION_THRESHOLD", 0.2, profile=profile),
+        drift_strict_mode=_get_profiled_env_bool("DRIFT_STRICT_MODE", False, profile=profile),        
     )
 
     ## Read retrieval settings with profile overrides

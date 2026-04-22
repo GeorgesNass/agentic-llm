@@ -3,9 +3,9 @@
 ###############################################################################
 # Autonomous-AI-Platform - Pipeline Menu
 # Author: Georges Nassopoulos
-# Version: 1.0.0
+# Version: 1.1.0
 # Description:
-#   CLI menu to run autonomous-ai-platform workflows (with data consistency + data quality):
+#   CLI menu to run autonomous-ai-platform workflows (with data consistency + data quality + data drift):
 #   - ingest documents (folder scan -> chunk -> embeddings -> vector store)
 #   - run chat (auto/local/api) with optional RAG + Text-to-SQL
 #   - run autonomous loop (agentic planning/execution/self-correction)
@@ -13,6 +13,7 @@
 #   - run monitoring stack helpers (Prometheus metrics endpoint + traces export)
 #   - run MCP server (FastAPI)
 #   - run Streamlit UI
+#   - run data drift detection
 ###############################################################################
 
 set -euo pipefail
@@ -51,6 +52,7 @@ while true; do
   echo " 4) Evaluate (offline metrics + optional LLM judge) (with data consistency + data quality)"
   echo " 5) Run MCP server (FastAPI) (with data consistency + data quality)"
   echo " 6) Run Streamlit UI (with data consistency + data quality)"
+  echo " 7) Run data drift"
   echo " 0) Exit"
   echo ""
 
@@ -218,6 +220,17 @@ while true; do
       ;;
     6)
       run_streamlit
+      pause
+      ;;
+    7)
+      ## DATA DRIFT
+      read -rp "Reference dataset path [default: ./artifacts/reference.csv]: " REF_PATH
+      REF_PATH="${REF_PATH:-./artifacts/reference.csv}"
+
+      read -rp "Current dataset path [default: ./artifacts/current.csv]: " CUR_PATH
+      CUR_PATH="${CUR_PATH:-./artifacts/current.csv}"
+
+      run_python main.py --mode drift --ref "$REF_PATH" --current "$CUR_PATH"
       pause
       ;;
     0)
