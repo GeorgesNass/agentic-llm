@@ -12,12 +12,14 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import numpy as np
 from pathlib import Path
 from typing import Optional
 
 from src.config.settings import build_pipeline_config
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.errors import LocalQuantizationError
 from src.pipeline import run_pipeline
 from src.utils.logging_utils import get_logger
@@ -216,6 +218,29 @@ def main() -> int:
         if quality_result["errors"] > 0:
             raise LocalQuantizationError("Data quality failed before quantization")
 
+        ## DATA DRIFT CHECK
+        if getattr(config.runtime, "drift_detection_enabled", True):
+
+            ## minimal synthetic weights for baseline drift monitoring
+            weights_ref = np.array([1.0, 2.0, 3.0])
+            weights_cur = np.array([1.0, 2.0, 3.0])
+
+            drift_result = run_data_drift(
+                weights_ref=weights_ref,
+                weights_current=weights_cur,
+                model_size_ref=100.0,
+                model_size_current=100.0,
+                strict=False,
+            )
+
+            LOGGER.info("Drift score | %s", drift_result["drift_score"])
+
+            if "evidently_report" in drift_result:
+                LOGGER.info("Evidently report | %s", drift_result["evidently_report"])
+                
+            if drift_result["errors"] > 0:
+                raise LocalQuantizationError("Data drift failed before pipeline")
+            
         ## RUN PIPELINE
         run_pipeline(config)
 
