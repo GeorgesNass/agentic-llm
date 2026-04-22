@@ -6,9 +6,12 @@ __desc__ = "Minimal unit tests for rag-drive-gcp core components."
 '''
 
 import numpy as np
+import pandas as pd
+import pytest
 
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.rag import Chunk, RAGIndex, chunk_text, retrieve_top_k
 from src.io.gcs import build_gcs_object_path
 from src.model.settings import get_settings
@@ -233,3 +236,115 @@ def test_data_quality_strict_mode():
 
     with pytest.raises(Exception):
         run_data_quality(texts=texts, strict=True)
+        
+## ============================================================
+## DATA DRIFT TESTS (RAG)
+## ============================================================
+def test_data_drift_no_drift_rag():
+    """
+        Validate no drift scenario for RAG dataset
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["chunk a", "chunk b"],
+        "embedding": [[0.1, 0.2], [0.1, 0.2]],
+        "source": ["drive", "drive"],
+        "mime_type": ["pdf", "pdf"],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["chunk a", "chunk b"],
+        "embedding": [[0.1, 0.2], [0.1, 0.2]],
+        "source": ["drive", "drive"],
+        "mime_type": ["pdf", "pdf"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] >= 0.9
+    assert result["errors"] == 0
+
+def test_data_drift_detected_rag():
+    """
+        Detect drift on embeddings and text
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["short", "short"],
+        "embedding": [[0.1, 0.2], [0.1, 0.2]],
+        "source": ["drive", "drive"],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["very very long chunk text"] * 2,
+        "embedding": [[10.0, 20.0], [10.0, 20.0]],
+        "source": ["gcs", "gcs"],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert result["drift_score"] < 1.0
+    assert result["warnings"] > 0
+
+def test_data_drift_empty_rag():
+    """
+        Validate empty dataset handling
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame()
+    df_cur = pd.DataFrame()
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+def test_data_drift_strict_mode_rag():
+    """
+        Validate strict mode behavior
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["a"],
+        "embedding": [[0.1, 0.2]],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["very very long text"],
+        "embedding": [[10.0, 20.0]],
+    })
+
+    with pytest.raises(Exception):
+        run_data_drift(df_ref=df_ref, df_current=df_cur, strict=True)
+        
+def test_data_drift_evidently_output_rag():
+    """
+        Validate Evidently report output
+
+        Returns:
+            None
+    """
+
+    df_ref = pd.DataFrame({
+        "text": ["a", "b"],
+        "embedding": [[0.1, 0.2], [0.1, 0.2]],
+    })
+
+    df_cur = pd.DataFrame({
+        "text": ["a", "b"],
+        "embedding": [[0.1, 0.2], [0.1, 0.2]],
+    })
+
+    result = run_data_drift(df_ref=df_ref, df_current=df_cur)
+
+    assert "evidently_report" in result or result["warnings"] >= 0

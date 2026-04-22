@@ -153,7 +153,14 @@ class RuntimeConfig:
             anomaly_method: Detection method (zscore or iqr)
             z_threshold: Z-score threshold
             iqr_multiplier: IQR multiplier
-            anomaly_strict_mode: Raise error if anomaly detected            
+            anomaly_strict_mode: Raise error if anomaly detected
+            drift_detection_enabled: Enable data drift detection
+            drift_p_value_threshold: Statistical p-value threshold for drift detection
+            drift_embedding_threshold: Threshold for embedding drift
+            drift_text_threshold: Threshold for text/chunk drift
+            drift_source_threshold: Threshold for source distribution drift
+            drift_evidently_enabled: Enable Evidently report generation
+            drift_strict_mode: Raise error if drift detected            
     """
 
     environment: str
@@ -170,6 +177,13 @@ class RuntimeConfig:
     z_threshold: float
     iqr_multiplier: float
     anomaly_strict_mode: bool
+    drift_detection_enabled: bool
+    drift_p_value_threshold: float
+    drift_embedding_threshold: float
+    drift_text_threshold: float
+    drift_source_threshold: float
+    drift_evidently_enabled: bool
+    drift_strict_mode: bool
     
 @dataclass(frozen=True)
 class DriveConfig:
@@ -704,6 +718,21 @@ def _validate_config(config: AppConfig) -> None:
 
         if config.runtime.iqr_multiplier <= 0:
             raise ConfigurationError("IQR_MULTIPLIER must be > 0")
+ 
+    ## Validate drift parameters
+    if config.runtime.drift_detection_enabled:
+
+        if config.runtime.drift_p_value_threshold <= 0 or config.runtime.drift_p_value_threshold > 1:
+            raise ConfigurationError("DRIFT_P_VALUE_THRESHOLD must be in (0, 1]")
+
+        if config.runtime.drift_embedding_threshold < 0:
+            raise ConfigurationError("DRIFT_EMBEDDING_THRESHOLD must be >= 0")
+
+        if config.runtime.drift_text_threshold < 0:
+            raise ConfigurationError("DRIFT_TEXT_THRESHOLD must be >= 0")
+
+        if config.runtime.drift_source_threshold < 0:
+            raise ConfigurationError("DRIFT_SOURCE_THRESHOLD must be >= 0")
             
 ## ============================================================
 ## EXPORT HELPERS
@@ -822,7 +851,14 @@ def get_config(env_path: Optional[Path] = None) -> AppConfig:
         anomaly_method=_get_profiled_env("ANOMALY_METHOD", "zscore", profile),
         z_threshold=_get_profiled_env_float("Z_THRESHOLD", 3.0, profile),
         iqr_multiplier=_get_profiled_env_float("IQR_MULTIPLIER", 1.5, profile),
-        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),        
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),
+        drift_detection_enabled=_get_profiled_env_bool("DRIFT_DETECTION_ENABLED", True, profile),
+        drift_p_value_threshold=_get_profiled_env_float("DRIFT_P_VALUE_THRESHOLD", 0.05, profile),
+        drift_embedding_threshold=_get_profiled_env_float("DRIFT_EMBEDDING_THRESHOLD", 0.2, profile),
+        drift_text_threshold=_get_profiled_env_float("DRIFT_TEXT_THRESHOLD", 0.2, profile),
+        drift_source_threshold=_get_profiled_env_float("DRIFT_SOURCE_THRESHOLD", 0.2, profile),
+        drift_evidently_enabled=_get_profiled_env_bool("DRIFT_EVIDENTLY_ENABLED", True, profile),
+        drift_strict_mode=_get_profiled_env_bool("DRIFT_STRICT_MODE", False, profile),        
     )
 
     ## Load GCP config JSON

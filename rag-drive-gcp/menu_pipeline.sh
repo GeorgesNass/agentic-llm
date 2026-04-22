@@ -3,13 +3,14 @@
 ###############################################################################
 # RAG-Drive-GCP - Pipeline Menu
 # Author: Georges Nassopoulos
-# Version: 1.0.0
+# Version: 1.1.0
 # Description:
 #   CLI menu to run the main rag-drive-gcp workflows:
 #   - validate configuration (with data consistency + data quality)
 #   - run ingestion pipeline from Google Drive (with optional OCR) (with data consistency + data quality)
 #   - run a RAG query from CLI (with data consistency + data quality)
 #   - launch Streamlit UI (separate file)
+#   - run data drift (Evidently)
 ###############################################################################
 
 set -euo pipefail
@@ -52,6 +53,7 @@ while true; do
   echo " 6) Show help"
   echo " 7) Show version"
   echo " 8) Run data quality check only"
+  echo " 9) Run data drift "
   echo " 0) Exit"
   echo ""
 
@@ -138,6 +140,18 @@ while true; do
       echo ""
 
       run_python main.py --validate-config
+
+      pause
+      ;;
+    9)
+      ## DATA DRIFT (RAG + EVIDENTLY)
+      read -rp "Reference dataset CSV: " REF
+      read -rp "Current dataset CSV: " CUR
+
+      run_python main.py \
+        --mode drift \
+        --ref "$REF" \
+        --current "$CUR"
 
       pause
       ;;

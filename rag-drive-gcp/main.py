@@ -13,11 +13,13 @@ import argparse
 import subprocess
 import sys
 import time
+import pandas as pd
 from pathlib import Path
 from typing import Optional
 
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.model.settings import get_settings
 from src.pipelines import run_drive_ingestion_pipeline, run_rag_query_pipeline
 from src.utils.logging_utils import get_logger
@@ -54,7 +56,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
     parser.add_argument("--dry-run", action="store_true", help="Validate arguments and log intended action without executing it.")
     parser.add_argument("--validate-config", action="store_true", help="Validate settings loading and exit.")
-
+    parser.add_argument("--mode", type=str, default="", help="Optional mode (e.g. drift)")
+    parser.add_argument("--ref", type=str, default="", help="Reference dataset for drift")
+    parser.add_argument("--current", type=str, default="", help="Current dataset for drift")
+    
     ## Execution modes
     parser.add_argument("--ingest", action="store_true", help="Run Google Drive ingestion pipeline.")
     parser.add_argument("--query", action="store_true", help="Run one RAG query from CLI.")
@@ -231,7 +236,61 @@ def main() -> int:
 
         _validate_action_selection(args)
 
-        if not any([args.ingest, args.query, args.run_ui]):
+        ## DATA DRIFT CHECK (RAG + EVIDENTLY)
+        if args.mode == "drift":
+            """
+                Run data drift detection on RAG datasets
+
+                High-level workflow:
+                    1) Validate input dataset paths
+                    2) Load reference and current datasets
+                    3) Run drift detection pipeline
+                    4) Log drift score and Evidently report
+                    5) Raise error if strict mode is enabled
+
+                Returns:
+                    EXIT_SUCCESS if successful
+            """
+
+            if not args.ref or not args.current:
+                raise ValueError("Drift mode requires --ref and --current")
+
+            ref_path = Path(args.ref)
+            cur_path = Path(args.current)
+
+            if not ref_path.exists() or not cur_path.exists():
+                raise ValueError("Drift datasets not found")
+
+            df_ref = pd.read_csv(ref_path)
+            df_cur = pd.read_csv(cur_path)
+
+            drift_result = run_data_drift(
+                df_ref=df_ref,
+                df_current=df_cur,
+                strict=settings.runtime.drift_strict_mode,
+            )
+
+            logger.info("Drift score | %s", drift_result["drift_score"])
+
+            if "evidently_report" in drift_result:
+                logger.info("Evidently report | %s", drift_result["evidently_report"])
+
+            if drift_result["errors"] > 0:
+                raise RuntimeError("Data drift detected")
+
+            logger.info(
+                "Summary | %s",
+                _build_summary(
+                    action="drift",
+                    success=True,
+                    start=start_time,
+                    details={"drift_score": drift_result["drift_score"]},
+                ),
+            )
+
+            return EXIT_SUCCESS
+            
+        if not any([args.ingest, args.query, args.run_ui, args.mode == "drift"]):
             parser.print_help()
             logger.info(
                 "Summary | %s",
