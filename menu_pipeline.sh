@@ -3,13 +3,14 @@
 ###############################################################################
 # Local Fine-Tuning - Pipeline Menu
 # Author: Georges Nassopoulos
-# Version: 1.0.0
+# Version: 1.1.0
 # Description:
-#   CLI menu to run the local fine-tuning pipelines:
-#   - dataset preparation (with data consistency + data quality)
-#   - LoRA SFT training (with data consistency + data quality)
-#   - evaluation (with data consistency + data quality)
-#   - full pipeline (with data consistency + data quality)
+#   CLI menu to run the local fine-tuning pipelines (with data consistency + data quality + data drift):
+#   - dataset preparation
+#   - LoRA SFT training
+#   - evaluation
+#   - full pipeline
+#   - data drift
 ###############################################################################
 
 set -euo pipefail
@@ -48,6 +49,7 @@ while true; do
   echo " 2) Train model (LoRA SFT) (with data consistency + data quality)"
   echo " 3) Evaluate model (with data consistency + data quality)"
   echo " 4) Run full pipeline (prepare + train + evaluate) (with data consistency + data quality)"
+  echo " 5) Run data drift"
   echo " 0) Exit"
   echo ""
 
@@ -69,6 +71,21 @@ while true; do
       ;;
     4)
       run_python main.py full
+      pause
+      ;;
+    5)
+      ## DATA DRIFT
+      read -rp "Reference dataset path [default: ./data/processed/train.jsonl]: " REF_PATH
+      REF_PATH="${REF_PATH:-./data/processed/train.jsonl}"
+
+      read -rp "Current dataset path [default: ./data/processed/new_data.jsonl]: " CUR_PATH
+      CUR_PATH="${CUR_PATH:-./data/processed/new_data.jsonl}"
+
+      run_python main.py \
+        --mode drift \
+        --ref "$REF_PATH" \
+        --current "$CUR_PATH"
+
       pause
       ;;
     0)
