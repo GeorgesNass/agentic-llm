@@ -3,13 +3,14 @@
 ###############################################################################
 # Local Quantization - Pipeline Menu
 # Author: Georges Nassopoulos
-# Version: 1.0.0
+# Version: 1.1.0
 # Description:
-#   CLI menu to run the local quantization pipelines:
-#   - quantization (with data consistency + data quality)
-#   - export (with data consistency + data quality)
-#   - benchmarking (with data consistency + data quality)
-#   - full pipeline (with data consistency + data quality)
+#   CLI menu to run the local quantization pipelines (with data consistency + data quality + data drift):
+#   - quantization
+#   - export
+#   - benchmarking
+#   - full pipeline
+#   - data drift
 ###############################################################################
 
 set -euo pipefail
@@ -53,6 +54,7 @@ while true; do
   echo " 2) Export quantized artifacts (with data consistency + data quality)"
   echo " 3) Benchmark quantized model (with data consistency + data quality)"
   echo " 4) Run full pipeline (quantize + export + benchmark) (with data consistency + data quality)"
+  echo " 5) Run data drift"
   echo " 0) Exit"
   echo ""
 
@@ -77,6 +79,29 @@ while true; do
     4)
       export_pipeline_mode "full"
       run_python main.py
+      pause
+      ;;
+    5)
+      ## DATA DRIFT
+      read -rp "Reference weights path [default: ./artifacts/ref_weights.npy]: " REF_W
+      REF_W="${REF_W:-./artifacts/ref_weights.npy}"
+
+      read -rp "Current weights path [default: ./artifacts/quant_weights.npy]: " CUR_W
+      CUR_W="${CUR_W:-./artifacts/quant_weights.npy}"
+
+      read -rp "Reference model size [MB] [default: 100]: " REF_S
+      REF_S="${REF_S:-100}"
+
+      read -rp "Current model size [MB] [default: 25]: " CUR_S
+      CUR_S="${CUR_S:-25}"
+
+      run_python main.py \
+        --mode drift \
+        --weights-ref "$REF_W" \
+        --weights-current "$CUR_W" \
+        --size-ref "$REF_S" \
+        --size-current "$CUR_S"
+
       pause
       ;;
     0)

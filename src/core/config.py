@@ -186,7 +186,12 @@ class RuntimeConfig:
             anomaly_method: Detection method (zscore / iqr)
             z_threshold: Z-score threshold
             iqr_multiplier: IQR multiplier
-            anomaly_strict_mode: Raise error if anomaly detected            
+            anomaly_strict_mode: Raise error if anomaly detected
+            drift_detection_enabled: Enable data drift detection on quantization outputs
+            drift_p_value_threshold: Statistical p-value threshold for weight drift
+            drift_weights_threshold: Threshold for weight distribution drift
+            drift_size_threshold: Threshold for model size drift
+            drift_strict_mode: Raise error if drift detected            
     """
 
     environment: str
@@ -201,6 +206,11 @@ class RuntimeConfig:
     z_threshold: float
     iqr_multiplier: float
     anomaly_strict_mode: bool
+    drift_detection_enabled: bool
+    drift_p_value_threshold: float
+    drift_weights_threshold: float
+    drift_size_threshold: float
+    drift_strict_mode: bool    
     
 @dataclass(frozen=True)
 class QuantizationConfig:
@@ -728,6 +738,18 @@ def _validate_config(config: AppConfig) -> None:
         if config.runtime.iqr_multiplier <= 0:
             raise ConfigurationError("IQR_MULTIPLIER must be > 0")
 
+    ## Validate drift parameters
+    if config.runtime.drift_detection_enabled:
+
+        if not (0 < config.runtime.drift_p_value_threshold < 1):
+            raise ConfigurationError("DRIFT_P_VALUE_THRESHOLD must be between 0 and 1")
+
+        if config.runtime.drift_weights_threshold < 0:
+            raise ConfigurationError("DRIFT_WEIGHTS_THRESHOLD must be >= 0")
+
+        if config.runtime.drift_size_threshold < 0:
+            raise ConfigurationError("DRIFT_SIZE_THRESHOLD must be >= 0")
+            
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -860,7 +882,12 @@ def get_config() -> AppConfig:
         anomaly_method=_get_profiled_env("ANOMALY_METHOD", "zscore", profile),
         z_threshold=float(_get_profiled_env("Z_THRESHOLD", "3.0", profile)),
         iqr_multiplier=float(_get_profiled_env("IQR_MULTIPLIER", "1.5", profile)),
-        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),        
+        anomaly_strict_mode=_get_profiled_env_bool("ANOMALY_STRICT_MODE", False, profile),  
+        drift_detection_enabled=_get_profiled_env_bool("DRIFT_DETECTION_ENABLED", True, profile),
+        drift_p_value_threshold=float(_get_profiled_env("DRIFT_P_VALUE_THRESHOLD", "0.05", profile)),
+        drift_weights_threshold=float(_get_profiled_env("DRIFT_WEIGHTS_THRESHOLD", "0.2", profile)),
+        drift_size_threshold=float(_get_profiled_env("DRIFT_SIZE_THRESHOLD", "0.2", profile)),
+        drift_strict_mode=_get_profiled_env_bool("DRIFT_STRICT_MODE", False, profile),        
     )
 
     ## Resolve quantization section

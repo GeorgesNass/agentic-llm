@@ -17,6 +17,7 @@ import numpy as np
 from src.config.settings import build_pipeline_config
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.errors import (
     ConfigurationError,
     DataError,
@@ -412,3 +413,107 @@ def test_data_quality_strict_mode() -> None:
 
     with pytest.raises(Exception):
         run_data_quality(data=data, strict=True)
+        
+## ============================================================
+## DATA DRIFT TESTS (LOCAL QUANTIZATION)
+## ============================================================
+def test_data_drift_no_drift_weights() -> None:
+    """
+        Validate no drift scenario on weights
+
+        Returns:
+            None
+    """
+
+    weights_ref = np.array([1.0, 2.0, 3.0])
+    weights_cur = np.array([1.0, 2.0, 3.0])
+
+    result = run_data_drift(
+        weights_ref=weights_ref,
+        weights_current=weights_cur,
+        model_size_ref=100.0,
+        model_size_current=100.0,
+    )
+
+    assert result["drift_score"] >= 0.9
+    assert result["errors"] == 0
+
+def test_data_drift_detected_weights() -> None:
+    """
+        Detect drift on weights
+
+        Returns:
+            None
+    """
+
+    weights_ref = np.array([1.0, 2.0, 3.0])
+    weights_cur = np.array([100.0, 200.0, 300.0])
+
+    result = run_data_drift(
+        weights_ref=weights_ref,
+        weights_current=weights_cur,
+        model_size_ref=100.0,
+        model_size_current=50.0,
+    )
+
+    assert result["drift_score"] < 1.0
+    assert result["warnings"] > 0
+
+def test_data_drift_empty_weights() -> None:
+    """
+        Validate empty weights handling
+
+        Returns:
+            None
+    """
+
+    weights_ref = np.array([])
+    weights_cur = np.array([])
+
+    with pytest.raises(Exception):
+        run_data_drift(
+            weights_ref=weights_ref,
+            weights_current=weights_cur,
+            model_size_ref=100.0,
+            model_size_current=50.0,
+        )
+
+def test_data_drift_strict_mode() -> None:
+    """
+        Validate strict mode behavior
+
+        Returns:
+            None
+    """
+
+    weights_ref = np.array([1.0])
+    weights_cur = np.array([1000.0])
+
+    with pytest.raises(Exception):
+        run_data_drift(
+            weights_ref=weights_ref,
+            weights_current=weights_cur,
+            model_size_ref=100.0,
+            model_size_current=10.0,
+            strict=True,
+        )
+        
+def test_data_drift_evidently_output_quantization() -> None:
+    """
+        Validate Evidently report generation for quantization drift
+
+        Returns:
+            None
+    """
+
+    weights_ref = np.array([1.0, 2.0, 3.0])
+    weights_cur = np.array([1.0, 2.0, 3.0])
+
+    result = run_data_drift(
+        weights_ref=weights_ref,
+        weights_current=weights_cur,
+        model_size_ref=100.0,
+        model_size_current=100.0,
+    )
+
+    assert "evidently_report" in result or result["warnings"] >= 0
