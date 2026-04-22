@@ -13,6 +13,7 @@ import argparse
 import json
 import sys
 import time
+import pandas as pd
 from pathlib import Path
 from typing import Any, Optional
 
@@ -20,6 +21,7 @@ import uvicorn
 
 from src.core.data_consistency import run_data_consistency
 from src.core.data_quality import run_data_quality
+from src.core.data_drift import run_data_drift
 from src.core.config import settings
 from src.core.errors import (
     ConfigurationError,
@@ -74,6 +76,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
     parser.add_argument("--dry-run", action="store_true", help="Validate arguments and resolved resources without executing actions.")
     parser.add_argument("--validate-config", action="store_true", help="Validate catalogs, settings and argument structure, then exit.")
+    parser.add_argument("--drift", action="store_true", help="Run data drift detection.")
+    parser.add_argument("--ref", type=str, default="", help="Reference dataset path for drift.")
+    parser.add_argument("--current", type=str, default="", help="Current dataset path for drift.")
+    parser.add_argument("--with-drift", action="store_true", help="Run drift after main action.")
 
     ## Main action flags
     parser.add_argument("--cost", action="store_true", help="Run cost simulation only (chat or embeddings).")
@@ -399,6 +405,41 @@ def main() -> int:
                 json.dumps(result, ensure_ascii=False)[:2000],
             )
 
+            ## DRIFT AFTER COST
+            if args.with_drift and settings.runtime.drift_detection_enabled:
+
+                df_ref = pd.read_csv(args.ref)
+                df_cur = pd.read_csv(args.current)
+
+                drift_result = run_data_drift(
+                    df_ref=df_ref,
+                    df_current=df_cur,
+                    strict=settings.runtime.drift_strict_mode,
+                )
+
+                LOGGER.info(f"Drift score: {drift_result['drift_score']}")
+
+                if "evidently_report" in drift_result:
+                    LOGGER.info("Evidently report | %s", drift_result["evidently_report"])
+                    
+        ## DATA DRIFT ONLY
+        if args.drift:
+            LOGGER.info("Running data drift")
+
+            df_ref = pd.read_csv(args.ref)
+            df_cur = pd.read_csv(args.current)
+
+            drift_result = run_data_drift(
+                df_ref=df_ref,
+                df_current=df_cur,
+                strict=settings.runtime.drift_strict_mode,
+            )
+
+            LOGGER.info(f"Drift score: {drift_result['drift_score']}")
+ 
+            if "evidently_report" in drift_result:
+                LOGGER.info("Evidently report | %s", drift_result["evidently_report"])
+                
         ## RUN PIPELINE
         if args.run:
             LOGGER.info(
@@ -436,6 +477,23 @@ def main() -> int:
                 json.dumps(result, ensure_ascii=False)[:2000],
             )
 
+            ## DRIFT AFTER PIPELINE
+            if args.with_drift and settings.runtime.drift_detection_enabled:
+
+                df_ref = pd.read_csv(args.ref)
+                df_cur = pd.read_csv(args.current)
+
+                drift_result = run_data_drift(
+                    df_ref=df_ref,
+                    df_current=df_cur,
+                    strict=settings.runtime.drift_strict_mode,
+                )
+
+                LOGGER.info(f"Drift score: {drift_result['drift_score']}")
+                  
+                if "evidently_report" in drift_result:
+                    LOGGER.info("Evidently report | %s", drift_result["evidently_report"])
+                    
         ## EVALUATION
         if args.evaluate:
             ## load predictions and references

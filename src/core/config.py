@@ -118,7 +118,12 @@ class RuntimeConfig:
             anomaly_method: Detection method (zscore / iqr)
             z_threshold: Z-score threshold
             iqr_multiplier: IQR multiplier
-            anomaly_strict_mode: Strict validation mode            
+            anomaly_strict_mode: Strict validation mode
+            drift_detection_enabled: Enable data drift detection
+            drift_p_value_threshold: Statistical p-value threshold for drift detection
+            drift_latency_threshold: Threshold for latency drift
+            drift_tokens_threshold: Threshold for token usage drift
+            drift_strict_mode: Fail pipeline if drift detected            
     """
 
     environment: str
@@ -137,6 +142,11 @@ class RuntimeConfig:
     z_threshold: float
     iqr_multiplier: float
     anomaly_strict_mode: bool
+    drift_detection_enabled: bool
+    drift_p_value_threshold: float
+    drift_latency_threshold: float
+    drift_tokens_threshold: float
+    drift_strict_mode: bool
     
 @dataclass(frozen=True)
 class ProvidersConfig:
@@ -821,6 +831,20 @@ def _validate_config(config: AppConfig) -> None:
     if config.runtime.anomaly_method not in {"zscore", "iqr"}:
         raise ConfigurationError("ANOMALY_METHOD must be 'zscore' or 'iqr'")
 
+    ## validate drift parameters
+    if not (0 < config.runtime.drift_p_value_threshold < 1):
+        raise ConfigurationError("DRIFT_P_VALUE_THRESHOLD must be between 0 and 1")
+
+    _validate_non_negative_float(
+        config.runtime.drift_latency_threshold,
+        "DRIFT_LATENCY_THRESHOLD",
+    )
+
+    _validate_non_negative_float(
+        config.runtime.drift_tokens_threshold,
+        "DRIFT_TOKENS_THRESHOLD",
+    )
+    
 ## ============================================================
 ## EXPORT HELPERS
 ## ============================================================
@@ -976,7 +1000,12 @@ def get_config() -> AppConfig:
         anomaly_method=_get_env("ANOMALY_METHOD", "zscore"),
         z_threshold=_get_env_float("Z_THRESHOLD", 3.0),
         iqr_multiplier=_get_env_float("IQR_MULTIPLIER", 1.5),
-        anomaly_strict_mode=_get_env_bool("ANOMALY_STRICT_MODE", False),        
+        anomaly_strict_mode=_get_env_bool("ANOMALY_STRICT_MODE", False),
+        drift_detection_enabled=_get_env_bool("DRIFT_DETECTION_ENABLED", True),
+        drift_p_value_threshold=_get_env_float("DRIFT_P_VALUE_THRESHOLD", 0.05),
+        drift_latency_threshold=_get_env_float("DRIFT_LATENCY_THRESHOLD", 0.2),
+        drift_tokens_threshold=_get_env_float("DRIFT_TOKENS_THRESHOLD", 0.2),
+        drift_strict_mode=_get_env_bool("DRIFT_STRICT_MODE", False),        
     )
 
     ## Build clustering configuration
