@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import random
 import time
 import numpy as np
@@ -191,4 +192,33 @@ def snapshot_config(
     ensure_dir(run_dir)
     snapshot_path = run_dir / filename
     save_json(config_dict, snapshot_path)
+    
     return snapshot_path
+    
+## --------------------------------------------------------------------------------------
+## Feature engineering utilities
+## --------------------------------------------------------------------------------------
+def normalize_clinical_text(text: str) -> str:
+    """
+        Normalize clinical / lab text for feature engineering
+
+        High-level workflow:
+            1) Convert to lowercase
+            2) Normalize whitespace
+            3) Remove special characters while preserving units and numbers
+
+        Args:
+            text: Input raw text
+
+        Returns:
+            Normalized text string
+    """
+
+    if not isinstance(text, str):
+        return ""
+
+    text = text.lower()
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"[^\w\s\.\-/%]", " ", text)
+
+    return text.strip()

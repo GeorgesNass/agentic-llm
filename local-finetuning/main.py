@@ -62,6 +62,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--env", type=Path, default=None, help="Optional path to .env file")
 
     parser.add_argument("--run-dir", type=Path, default=None, help="Existing run directory (used for evaluation)")
+    
+    parser.add_argument("--features", action="store_true", help="Enable feature engineering")
 
     return parser
     
@@ -114,6 +116,8 @@ def main() -> int:
     start_time = time.monotonic()
     parser = _build_parser()
     args = parser.parse_args()
+    
+    use_fe = bool(args.features)
 
     try:
         if args.validate_config:
@@ -135,6 +139,7 @@ def main() -> int:
             consistency_result = run_data_consistency(
                 data={
                     "text": "finetuning_run",
+                    "feature_engineering": use_fe,
                     "model_name": config.training.base_model_name,
                     "dataset": ["sample"],
                     "batch_size": config.training.batch_size,
@@ -160,6 +165,7 @@ def main() -> int:
                 z_threshold=config.runtime.z_threshold,
                 iqr_multiplier=config.runtime.iqr_multiplier,
                 strict=config.runtime.anomaly_strict_mode,
+                text="finetuning_run",
             )
 
             logger.info(f"Quality score: {quality_result['score']}")

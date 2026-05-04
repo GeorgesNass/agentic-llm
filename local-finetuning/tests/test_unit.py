@@ -29,6 +29,7 @@ from src.core.metrics import (
     most_confused_pairs,
 )
 from src.core.prepare_dataset import run_prepare_dataset
+from src.utils.utils import normalize_clinical_text
 from src.utils.io_utils import read_jsonl
 from src.config.settings import load_settings
 
@@ -716,3 +717,43 @@ def test_data_drift_evidently_output_finetuning() -> None:
     result = run_data_drift(df_ref=df_ref, df_current=df_cur)
 
     assert "evidently_report" in result or result["warnings"] >= 0
+    
+def test_normalize_clinical_text_fe() -> None:
+    """
+        Validate clinical text normalization for feature engineering
+
+        High-level workflow:
+            1) Provide noisy text input
+            2) Apply normalization
+            3) Assert cleaned output
+
+        Returns:
+            None
+    """
+
+    raw = "  Sodium µmol/L !!!  "
+    normalized = normalize_clinical_text(raw)
+
+    assert normalized == "sodium umol/l"
+    
+def test_text_features_fe() -> None:
+    """
+        Validate feature engineering text statistics
+
+        High-level workflow:
+            1) Normalize input text
+            2) Compute token and length features
+            3) Validate expected properties
+
+        Returns:
+            None
+    """
+
+    text = "Glucose 5.5 mmol/L"
+    normalized = normalize_clinical_text(text)
+
+    char_length = len(normalized)
+    token_count = len(normalized.split())
+
+    assert char_length > 0
+    assert token_count >= 2

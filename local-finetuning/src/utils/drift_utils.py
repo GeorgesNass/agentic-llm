@@ -20,6 +20,7 @@ from scipy.stats import ks_2samp, chi2_contingency
 from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset
     
+from src.utils.utils import normalize_clinical_text
 from src.utils.logging_utils import get_logger
 
 try:
@@ -122,7 +123,12 @@ def compute_text_stats(df: pd.DataFrame) -> pd.DataFrame:
 
     ## TEXT COLUMN
     if "text" in df.columns:
-        text_series = df["text"].fillna("").astype(str)
+        text_series = (
+            df["text"]
+            .fillna("")
+            .astype(str)
+            .apply(normalize_clinical_text)
+        )
 
         ## length
         data["text_length"] = text_series.str.len()

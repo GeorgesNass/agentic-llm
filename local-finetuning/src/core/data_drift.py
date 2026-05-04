@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-
+from src.utils.drift_utils import compute_text_stats
 from src.utils.logging_utils import get_logger
 from src.utils.drift_utils import (
     compute_ks_test,
@@ -255,6 +255,12 @@ def run_data_drift(
             )
             drift_flags.append(p_value < p_value_threshold)
 
+        if "text" in df_ref.columns:
+            df_ref["text"] = df_ref["text"].astype(str).apply(normalize_clinical_text)
+
+        if "text" in df_current.columns:
+            df_current["text"] = df_current["text"].astype(str).apply(normalize_clinical_text)
+            
         ## TEXT FEATURES DRIFT
         ref_text = compute_text_stats(df_ref)
         cur_text = compute_text_stats(df_current)

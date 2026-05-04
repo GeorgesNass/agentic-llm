@@ -13,6 +13,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+from src.utils.utils import normalize_clinical_text
+
 def read_jsonl(file_path: Path) -> List[Dict[str, Any]]:
     """
 		Read a JSONL file into a list of dictionaries
@@ -111,3 +113,33 @@ def ensure_allowed_set(allowed_labels: Optional[Iterable[str]]) -> Optional[set[
         return None
 
     return set(allowed_labels)
+    
+## --------------------------------------------------------------------------------------
+## Feature engineering I/O utilities
+## --------------------------------------------------------------------------------------
+def load_and_normalize_text_from_path(file_path: Path) -> str:
+    """
+        Load and normalize text file content for feature engineering
+
+        High-level workflow:
+            1) Validate file existence
+            2) Read raw text content
+            3) Apply clinical text normalization
+
+        Args:
+            file_path: Path to input text file
+
+        Returns:
+            Normalized text string
+
+        Raises:
+            FileNotFoundError: If file does not exist
+    """
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Text file not found: {file_path}")
+
+    with file_path.open("r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    return normalize_clinical_text(content)

@@ -291,6 +291,23 @@ class DataConsistencyConfig:
     strict_mode: bool
     min_text_length: int
     min_dataset_size: int
+
+@dataclass(frozen=True)
+class FeatureEngineeringConfig:
+    """
+        Feature engineering configuration
+
+        Args:
+            enabled: Enable feature engineering globally
+            normalize_text: Apply text normalization
+            compute_token_stats: Compute token-based features
+            export_features: Export features to datasets/artifacts
+    """
+
+    enabled: bool
+    normalize_text: bool
+    compute_token_stats: bool
+    export_features: bool
     
 @dataclass(frozen=True)
 class SecretsConfig:
@@ -322,6 +339,7 @@ class AppConfig:
             training: Training configuration
             evaluation: Evaluation configuration
             secrets: Secret values
+            feature_engineering: Feature engineering configuration
     """
 
     app_name: str
@@ -334,6 +352,7 @@ class AppConfig:
     evaluation: EvaluationConfig
     secrets: SecretsConfig
     data_consistency: DataConsistencyConfig
+    feature_engineering: FeatureEngineeringConfig
 
 ## ============================================================
 ## DOTENV / ENV HELPERS
@@ -967,7 +986,14 @@ def get_config() -> AppConfig:
         min_text_length=_get_env_int("DATA_CONSISTENCY_MIN_TEXT_LENGTH", 3),
         min_dataset_size=_get_env_int("DATA_CONSISTENCY_MIN_DATASET_SIZE", 2),
     )
-    
+
+    feature_engineering = FeatureEngineeringConfig(
+        enabled=_get_env_bool("FEATURE_ENGINEERING_ENABLED", False),
+        normalize_text=_get_env_bool("FE_NORMALIZE_TEXT", True),
+        compute_token_stats=_get_env_bool("FE_TOKEN_STATS", True),
+        export_features=_get_env_bool("FE_EXPORT_FEATURES", False),
+    )
+
     ## Resolve optional secrets Load JSON secrets
     secrets_path = _get_env_path("APP_SECRETS_FILE", "", project_root)
 
@@ -984,7 +1010,8 @@ def get_config() -> AppConfig:
         app_name=_get_env("APP_NAME", DEFAULT_APP_NAME), app_version=_get_env("APP_VERSION", DEFAULT_APP_VERSION),
         execution=execution, paths=paths, runtime=runtime, data=data, training=training,
         evaluation=evaluation, secrets=secrets,
-        data_consistency=data_consistency,        
+        data_consistency=data_consistency,
+        feature_engineering=feature_engineering,        
     )
 
     ## Validate final configuration
