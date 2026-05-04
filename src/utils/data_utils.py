@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List
 
+from src.utils.utils import normalize_clinical_text
 from src.utils import get_logger
 
 ## ============================================================
@@ -31,14 +32,20 @@ def normalize_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """
 
     normalized = {}
+    
+    use_fe = data.get("feature_engineering", False)
 
     for key, value in data.items():
 
         ## Normalize string
         if isinstance(value, str):
             logger.debug(f"Normalizing string: {key}")
-            value = value.strip().lower()
-            value = re.sub(r"\s+", " ", value)
+
+            if use_fe:
+                value = normalize_clinical_text(value)
+            else:
+                value = value.strip().lower()
+                value = re.sub(r"\s+", " ", value)
 
         ## Normalize list
         if isinstance(value, list):
@@ -48,6 +55,11 @@ def normalize_data(data: Dict[str, Any]) -> Dict[str, Any]:
                 for v in value
             ]
 
+        if use_fe and key == "text":
+            normalized["normalized_text"] = value
+            normalized["char_length"] = len(value)
+            normalized["token_count"] = len(value.split())
+                       
         normalized[key] = value
 
     return normalized

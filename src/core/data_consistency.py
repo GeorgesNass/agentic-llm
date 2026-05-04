@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from src.utils.utils import normalize_clinical_text
 from src.utils.logging_utils import get_logger
 from src.utils.data_utils import (
     normalize_data,
@@ -83,11 +84,21 @@ def _validate_text(
     """
 
     text = data.get("text", "")
+    
+    use_fe = data.get("feature_engineering", False)
 
     ## Normalize text
     normalized = normalize_data({"text": text}).get("text", "")
+
+    if use_fe:
+        normalized = normalize_clinical_text(normalized)
+
     data["text"] = normalized
 
+    if use_fe:
+        data["char_length"] = len(normalized)
+        data["token_count"] = len(normalized.split())
+    
     ## Empty check
     if not normalized:
         _add_issue(issues, "text_empty", "error", "Text is empty")

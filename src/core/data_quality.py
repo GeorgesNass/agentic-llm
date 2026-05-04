@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Union
 
 import numpy as np
 
+from src.utils.utils import normalize_clinical_text
 from src.utils.logging_utils import get_logger
 from src.utils.stats_utils import compute_mean_std, compute_iqr_bounds
 
@@ -133,16 +134,18 @@ def run_data_quality(
     z_threshold: float = 3.0,
     iqr_multiplier: float = 1.5,
     strict: bool = False,
+    **kwargs,
 ) -> Dict[str, Any]:
     """
         Run anomaly detection on finetuning tensors
 
         High-level workflow:
-            1) Convert input to numpy
-            2) Detect NaN / inf values
-            3) Detect statistical anomalies
-            4) Detect gradient explosion
-            5) Compute global score
+            1) Optionally validate associated text (feature engineering)
+            2) Convert input to numpy
+            3) Detect NaN / inf values
+            4) Detect statistical anomalies
+            5) Detect gradient explosion
+            6) Compute global score
 
         Args:
             data: Tensor-like input (weights, gradients, loss)
@@ -150,6 +153,7 @@ def run_data_quality(
             z_threshold: Z-score threshold
             iqr_multiplier: IQR multiplier
             strict: Raise error if invalid
+            **kwargs: Optional parameters (e.g., text for FE validation)
 
         Returns:
             Result dictionary
@@ -158,6 +162,29 @@ def run_data_quality(
     issues: List[Dict[str, Any]] = []
 
     try:
+
+        ## Feature engineering - optional text validation
+        text = kwargs.get("text", None)
+
+        if isinstance(text, str) and text:
+            normalized_text = normalize_clinical_text(text)
+
+            if len(normalized_text) < 3:
+                _add_issue(
+                    issues,
+                    "text_too_short",
+                    "warning",
+                    "Normalized text too short",
+                )
+
+            if len(normalized_text.split()) < 2:
+                _add_issue(
+                    issues,
+                    "low_token_count",
+                    "warning",
+                    "Very low token count",
+                )
+
         ## PREPARE DATA
         arr = _to_numpy(data)
 

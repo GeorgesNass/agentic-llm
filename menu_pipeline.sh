@@ -57,20 +57,57 @@ while true; do
 
   case "$choice" in
     1)
-      run_python main.py prepare
+      ## FE NEW
+      read -rp "Enable feature engineering? (y/n) [default: n]: " FE
+      FE="${FE:-n}"
+
+      if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
+        run_python main.py prepare --features
+      else
+        run_python main.py prepare
+      fi
+
       pause
       ;;
     2)
-      run_python main.py train
+      ## FE NEW
+      read -rp "Enable feature engineering? (y/n) [default: n]: " FE
+      FE="${FE:-n}"
+
+      if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
+        run_python main.py train --features
+      else
+        run_python main.py train
+      fi
+
       pause
       ;;
     3)
       read -rp "Path to run directory (e.g. artifacts/runs/run_YYYYMMDD_HHMMSS): " RUN_DIR
-      run_python main.py evaluate --run-dir "$RUN_DIR"
+
+      ## FE NEW
+      read -rp "Enable feature engineering? (y/n) [default: n]: " FE
+      FE="${FE:-n}"
+
+      if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
+        run_python main.py evaluate --run-dir "$RUN_DIR" --features
+      else
+        run_python main.py evaluate --run-dir "$RUN_DIR"
+      fi
+
       pause
       ;;
     4)
-      run_python main.py full
+      ## FE NEW
+      read -rp "Enable feature engineering? (y/n) [default: n]: " FE
+      FE="${FE:-n}"
+
+      if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
+        run_python main.py full --features
+      else
+        run_python main.py full
+      fi
+
       pause
       ;;
     5)

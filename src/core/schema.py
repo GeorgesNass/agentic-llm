@@ -47,6 +47,12 @@ class BaseSchema(BaseModel):
     """
         Base schema with shared validation and serialization helpers
 
+        Args:
+        
+            normalized_text: Optional normalized text after feature engineering
+            token_count: Optional token count computed from normalized text
+            char_length: Optional character length computed from normalized text
+            
         Returns:
             A reusable Pydantic base model
     """
@@ -57,6 +63,11 @@ class BaseSchema(BaseModel):
         "str_strip_whitespace": True,
     }
 
+    ## Feature engineering fields (optional)
+    normalized_text: Optional[str] = None
+    token_count: Optional[int] = None
+    char_length: Optional[int] = None
+    
     def to_dict(self) -> dict[str, Any]:
         """
             Convert the model to a Python dictionary
@@ -663,6 +674,7 @@ class PipelineTask(BaseSchema):
             progress: Task progress percentage
             input_payload: Task input payload
             output_payload: Task output payload
+            feature_engineering: Whether feature engineering was enabled for this task
     """
 
     task_id: str
@@ -671,7 +683,8 @@ class PipelineTask(BaseSchema):
     progress: float = Field(default=0.0, ge=0.0, le=100.0)
     input_payload: dict[str, Any] = Field(default_factory=dict)
     output_payload: dict[str, Any] = Field(default_factory=dict)
-
+    feature_engineering: Optional[bool] = None
+    
 class PipelineJob(BaseSchema):
     """
         Pipeline job schema
