@@ -7,6 +7,8 @@ accelerate
 bitsandbytes
 pytest
 tqdm
+redis>=5.0.0
+feast>=0.39.0
 
 # numpy
 # pandas

@@ -12,8 +12,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
+import os
+import redis
+
+try:
+    from feast import FeatureStore
+except:
+    FeatureStore = None
 
 from src.utils.utils import normalize_clinical_text
+
+FEATURE_STORE_MODE = os.getenv("FEATURE_STORE_MODE", "redis")
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+FEAST_REPO_PATH = os.getenv("FEAST_REPO_PATH", "./feature_repo")
+
+## Initialize Redis client
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 def read_jsonl(file_path: Path) -> List[Dict[str, Any]]:
     """
@@ -143,3 +159,107 @@ def load_and_normalize_text_from_path(file_path: Path) -> str:
         content = f.read()
 
     return normalize_clinical_text(content)
+    
+## ============================================================
+## FEATURE ENGINEERING (STRUCTURED FEATURES)
+## ============================================================
+def build_features(row: Dict[str, Any]) -> Dict[str, Any]:
+    """
+        Build structured features from input row
+
+        Design:
+            - Lightweight feature engineering
+            - Works for mixed data types (text, numeric)
+            - No external dependency
+
+        Args:
+            row: Input dictionary representing a record
+
+        Returns:
+            Feature dictionary
+    """
+
+    features: Dict[str, Any] = {}
+
+    for k, v in row.items():
+
+        ## Text features
+        if isinstance(v, str):
+            features[f"{k}_length"] = len(v)
+            features[f"{k}_lower"] = v.lower()
+
+        ## Numeric features
+        if isinstance(v, (int, float)):
+            features[f"{k}_scaled"] = v
+
+    return features
+    
+## ============================================================
+## FEATURE STORE (REDIS + FEAST)
+## ============================================================
+def push_features(entity_id: str, features: Dict[str, Any]) -> None:
+    """
+        Store features in feature store (Redis local or Feast online)
+
+        Design:
+            - Unified interface for feature storage
+            - Backend selected via FEATURE_STORE_MODE
+            - Redis for local fast access
+            - Feast for production-ready feature serving
+
+        Args:
+            entity_id: Unique identifier for entity
+            features: Feature dictionary to store
+
+        Returns:
+            None
+    """
+
+    if FEATURE_STORE_MODE == "redis":
+
+        ## Redis storage (hash per entity)
+        redis_client.hset(entity_id, mapping=features)
+
+    else:
+
+        ## Feast storage (online store)
+        import pandas as pd
+
+        store = FeatureStore(repo_path=FEAST_REPO_PATH)
+
+        ## Convert features to DataFrame
+        df = pd.DataFrame([{**features, "entity_id": entity_id}])
+
+        ## Push to Feast
+        store.write_to_online_store(df)
+
+def get_features(entity_id: str) -> Dict[str, Any]:
+    """
+        Retrieve features from feature store
+
+        Design:
+            - Unified interface for feature retrieval
+            - Backend selected via FEATURE_STORE_MODE
+            - Ensures same API for local and production
+
+        Args:
+            entity_id: Unique identifier for entity
+
+        Returns:
+            Feature dictionary
+    """
+
+    if FEATURE_STORE_MODE == "redis":
+
+        ## Redis fetch
+        return redis_client.hgetall(entity_id)
+
+    else:
+
+        ## Feast fetch
+        store = FeatureStore(repo_path=FEAST_REPO_PATH)
+
+        return store.get_online_features(
+            features=["features:*"],
+            entity_rows=[{"entity_id": entity_id}]
+        ).to_dict()
