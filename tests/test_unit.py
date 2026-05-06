@@ -30,7 +30,7 @@ from src.core.metrics import (
 )
 from src.core.prepare_dataset import run_prepare_dataset
 from src.utils.utils import normalize_clinical_text
-from src.utils.io_utils import read_jsonl
+from src.utils.io_utils import read_jsonl, build_features, push_features, get_features
 from src.config.settings import load_settings
 
 ## --------------------------------------------------------------------------------------
@@ -757,3 +757,82 @@ def test_text_features_fe() -> None:
 
     assert char_length > 0
     assert token_count >= 2
+   
+## ============================================================
+## FEATURE STORE TESTS
+## ============================================================
+def test_build_features_basic() -> None:
+    """
+        Validate feature engineering output structure
+
+        Design:
+            - Ensure expected keys are created
+            - Validate text + numeric handling
+
+        Returns:
+            None
+    """
+
+    row = {"text": "Hello", "value": 10}
+
+    ## Build features
+    features = build_features(row)
+
+    ## Assertions
+    assert "text_length" in features
+    assert "text_lower" in features
+    assert "value_scaled" in features
+    
+def test_feature_store_redis_roundtrip() -> None:
+    """
+        Validate Redis feature store roundtrip
+
+        Design:
+            - Store features
+            - Retrieve features
+            - Ensure non-empty result
+
+        Returns:
+            None
+    """
+
+    entity_id = "test_entity"
+    features = {"a": 1, "b": 2}
+
+    ## Push features
+    push_features(entity_id, features)
+
+    ## Retrieve features
+    retrieved = get_features(entity_id)
+
+    ## Assertions
+    assert isinstance(retrieved, dict)
+    assert len(retrieved) > 0
+    
+def test_feature_engineering_pipeline_integration() -> None:
+    """
+        Validate full feature engineering + storage pipeline
+
+        Design:
+            - Build features from raw row
+            - Store in feature store
+            - Retrieve and validate
+
+        Returns:
+            None
+    """
+
+    row = {"text": "Sample Data", "num": 5}
+
+    ## Build features
+    features = build_features(row)
+
+    ## Store features
+    push_features("entity_test", features)
+
+    ## Retrieve features
+    retrieved = get_features("entity_test")
+
+    ## Assertions
+    assert isinstance(retrieved, dict)
+    assert len(retrieved) > 0

@@ -18,10 +18,14 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
+## NEW
+: "${FEATURE_STORE_MODE:=redis}"
+
 echo "=============================================="
 echo " Local Fine-Tuning - Pipeline Menu"
 echo "=============================================="
 echo "Project root: ${PROJECT_ROOT}"
+echo "Feature Store Mode: ${FEATURE_STORE_MODE}"
 echo ""
 
 ## ---------------------------------------------------------------------------
@@ -61,10 +65,15 @@ while true; do
       read -rp "Enable feature engineering? (y/n) [default: n]: " FE
       FE="${FE:-n}"
 
+      ## NEW
+      read -rp "Feature store mode (redis/feast) [default: ${FEATURE_STORE_MODE}]: " FSM
+      FSM="${FSM:-$FEATURE_STORE_MODE}"
+      export FEATURE_STORE_MODE="$FSM"
+
       if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
-        run_python main.py prepare --features
+        run_python main.py prepare --features --feature-store-mode "$FSM"
       else
-        run_python main.py prepare
+        run_python main.py prepare --feature-store-mode "$FSM"
       fi
 
       pause
@@ -74,10 +83,15 @@ while true; do
       read -rp "Enable feature engineering? (y/n) [default: n]: " FE
       FE="${FE:-n}"
 
+      ## NEW
+      read -rp "Feature store mode (redis/feast) [default: ${FEATURE_STORE_MODE}]: " FSM
+      FSM="${FSM:-$FEATURE_STORE_MODE}"
+      export FEATURE_STORE_MODE="$FSM"
+
       if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
-        run_python main.py train --features
+        run_python main.py train --features --feature-store-mode "$FSM"
       else
-        run_python main.py train
+        run_python main.py train --feature-store-mode "$FSM"
       fi
 
       pause
@@ -89,10 +103,15 @@ while true; do
       read -rp "Enable feature engineering? (y/n) [default: n]: " FE
       FE="${FE:-n}"
 
+      ## NEW
+      read -rp "Feature store mode (redis/feast) [default: ${FEATURE_STORE_MODE}]: " FSM
+      FSM="${FSM:-$FEATURE_STORE_MODE}"
+      export FEATURE_STORE_MODE="$FSM"
+
       if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
-        run_python main.py evaluate --run-dir "$RUN_DIR" --features
+        run_python main.py evaluate --run-dir "$RUN_DIR" --features --feature-store-mode "$FSM"
       else
-        run_python main.py evaluate --run-dir "$RUN_DIR"
+        run_python main.py evaluate --run-dir "$RUN_DIR" --feature-store-mode "$FSM"
       fi
 
       pause
@@ -102,10 +121,15 @@ while true; do
       read -rp "Enable feature engineering? (y/n) [default: n]: " FE
       FE="${FE:-n}"
 
+      ## NEW
+      read -rp "Feature store mode (redis/feast) [default: ${FEATURE_STORE_MODE}]: " FSM
+      FSM="${FSM:-$FEATURE_STORE_MODE}"
+      export FEATURE_STORE_MODE="$FSM"
+
       if [[ "$FE" == "y" || "$FE" == "Y" ]]; then
-        run_python main.py full --features
+        run_python main.py full --features --feature-store-mode "$FSM"
       else
-        run_python main.py full
+        run_python main.py full --feature-store-mode "$FSM"
       fi
 
       pause
@@ -118,10 +142,16 @@ while true; do
       read -rp "Current dataset path [default: ./data/processed/new_data.jsonl]: " CUR_PATH
       CUR_PATH="${CUR_PATH:-./data/processed/new_data.jsonl}"
 
+      ## NEW
+      read -rp "Feature store mode (redis/feast) [default: ${FEATURE_STORE_MODE}]: " FSM
+      FSM="${FSM:-$FEATURE_STORE_MODE}"
+      export FEATURE_STORE_MODE="$FSM"
+
       run_python main.py \
         --mode drift \
         --ref "$REF_PATH" \
-        --current "$CUR_PATH"
+        --current "$CUR_PATH" \
+        --feature-store-mode "$FSM"
 
       pause
       ;;

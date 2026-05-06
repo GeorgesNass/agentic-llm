@@ -15,6 +15,7 @@ import time
 import pandas as pd
 from pathlib import Path
 from typing import Optional
+import os
 
 from src.pipeline import evaluate, full_run, prepare, train
 from src.core.data_consistency import run_data_consistency
@@ -22,6 +23,7 @@ from src.core.data_quality import run_data_quality
 from src.core.data_drift import run_data_drift
 from src.config import get_config
 from src.core.errors import DataError, ConfigurationError
+from src.utils.io_utils import build_features, push_features, get_features
 from src.utils.logging_utils import get_logger
 
 ## ============================================================
@@ -56,6 +58,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {APP_VERSION}")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--validate-config", action="store_true")
+    parser.add_argument("--feature-store-mode", type=str, choices=["redis", "feast"], default=None, help="Override FEATURE_STORE_MODE")
 
     parser.add_argument("command", choices=["prepare", "train", "evaluate", "full"], help="Pipeline command to run")
 
@@ -116,9 +119,31 @@ def main() -> int:
     start_time = time.monotonic()
     parser = _build_parser()
     args = parser.parse_args()
-    
+ 
+    if args.feature_store_mode:
+        os.environ["FEATURE_STORE_MODE"] = args.feature_store_mode
+        
     use_fe = bool(args.features)
 
+    ## FEATURE ENGINEERING + FEATURE STORE
+    if use_fe:
+
+        sample_row = {
+            "text": "finetuning_run",
+            "value": 1,
+        }
+
+        ## Build features
+        features = build_features(sample_row)
+
+        ## Store features
+        push_features("finetuning_entity", features)
+
+        ## Retrieve features
+        retrieved_features = get_features("finetuning_entity")
+
+        logger.info("Feature Store OK | %s", bool(retrieved_features))
+        
     try:
         if args.validate_config:
             logger.info("Config validation OK")
